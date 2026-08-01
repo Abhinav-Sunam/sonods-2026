@@ -13,6 +13,7 @@ export default function App() {
   const [mode, setMode] = useState('auto');     // 'auto' | 'learn'
   const [history, setHistory] = useState([]);
   const [videoPaused, setVideoPaused] = useState(false);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   const videoRef = useRef(null);
 
   // Luna Chat State
@@ -197,24 +198,48 @@ export default function App() {
         {/* Interface Bed */}
         <div className="interface-bed" style={{ position: 'relative', overflow: 'hidden' }}>
           {mode === 'learn' && (
-            <video 
-              ref={videoRef}
-              src="/loop-bkg.mp4" 
-              autoPlay 
-              loop 
-              muted 
-              playsInline
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                zIndex: 0,
-                pointerEvents: 'none'
-              }}
-            />
+            <>
+              <img
+                src="/loop-bkg-poster.webp"
+                alt="Background poster"
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  zIndex: 1,
+                  pointerEvents: 'none',
+                  opacity: isVideoReady ? 0 : 1,
+                  transition: 'opacity 0.6s ease-in-out',
+                }}
+              />
+              <video 
+                ref={videoRef}
+                poster="/loop-bkg-poster.webp"
+                autoPlay 
+                loop 
+                muted 
+                playsInline
+                preload="auto"
+                onCanPlay={() => setIsVideoReady(true)}
+                onPlaying={() => setIsVideoReady(true)}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  zIndex: 0,
+                  pointerEvents: 'none'
+                }}
+              >
+                <source src="/loop-bkg.webm" type="video/webm" />
+                <source src="/loop-bkg.mp4" type="video/mp4" />
+              </video>
+            </>
           )}
           {screen === 'home' && (
             <HomeScreen
