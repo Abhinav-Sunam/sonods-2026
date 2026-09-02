@@ -7,8 +7,10 @@
 //! - **Task 0.4 (Keyframe Character Art)**: Hand-drawn 4-stage character art mapping 0% -> 100% drive.
 //! - **Task 0.5 (Phase 6 Scope)**: Kept in scope for unified session intelligence.
 
+pub mod antideriv;
 pub mod waveshaper;
 
+pub use antideriv::{antideriv1, antideriv2};
 pub use waveshaper::{
     shape, shape_tape, shape_transformer, shape_tube, Character, TRANSFORMER_K_SCALE,
     TRANSFORMER_TUBE_BLEND, TUBE_DEFAULT_BIAS,
