@@ -2,23 +2,23 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: var(--sonods-bg-strip, #181C26);
-  border: 1px solid var(--sonods-border-color, #2A3040);
-  border-radius: 8px;
+  background: #FFFFFF;
+  border: 1.5px solid #E4E4E7;
+  border-radius: 10px;
   padding: 6px 3px;
   gap: 5px;
-  width: 48px;
-  min-width: 48px;
-  max-width: 48px;
+  width: 52px;
+  min-width: 52px;
+  max-width: 52px;
   box-sizing: border-box;
   transition: all 0.15s ease;
   position: relative;
 }
 
 .bandStrip.selected {
-  background: var(--sonods-bg-strip-active, #222735);
-  border-color: #64748B;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  background: #F4F4F5;
+  border-color: #A1A1AA;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
 .headerRow {
@@ -30,82 +30,82 @@
 }
 
 .bandNumber {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   font-size: 11px;
   font-weight: 800;
   font-family: var(--sonods-font-mono);
-  color: #000000;
+  color: #FFFFFF;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
 
 .shapeBtn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
+  background: #F4F4F5;
+  border: 1px solid #D4D4D8;
+  border-radius: 4px;
   font-size: 9px;
   font-weight: 700;
   padding: 2px 3px;
   cursor: pointer;
-  color: var(--sonods-text-bright);
+  color: #18181B;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 2px;
-  width: 42px;
+  width: 44px;
   box-sizing: border-box;
   transition: all 0.12s ease;
 }
 
 .shapeBtn:hover {
-  background: rgba(255, 255, 255, 0.18);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: #E4E4E7;
+  border-color: #A1A1AA;
 }
 
 .chevron {
   font-size: 8px;
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
 .shapeMenu {
   position: absolute;
   top: 48px;
   left: 0;
-  background: #181C26;
-  border: 1px solid #334155;
-  border-radius: 6px;
-  padding: 3px;
+  background: #FFFFFF;
+  border: 1.5px solid #D4D4D8;
+  border-radius: 8px;
+  padding: 4px;
   z-index: 200;
-  min-width: 90px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.7);
+  min-width: 100px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
 .shapeMenuItem {
-  padding: 4px 6px;
-  font-size: 10px;
+  padding: 5px 8px;
+  font-size: 11px;
   font-weight: 600;
-  color: #E2E8F0;
-  border-radius: 3px;
+  color: #18181B;
+  border-radius: 4px;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .shapeMenuItem:hover {
-  background: rgba(132, 204, 22, 0.2);
-  color: #84CC16;
+  background: #F0FDF4;
+  color: #4D7C0F;
 }
 
 .shapeMenuItem.active {
   background: #84CC16;
-  color: #000000;
+  color: #FFFFFF;
   font-weight: 700;
 }
 

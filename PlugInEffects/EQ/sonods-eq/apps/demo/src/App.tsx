@@ -27,13 +27,11 @@ export const App: React.FC = () => {
     simulatedTrackRef.current = new SessionRegistry('simulated-remote-session', 'Kick Drum Track');
 
     eqNode.whenReady().then(() => {
-      // 7 standard bands matching Fruity Parametric EQ 2
+      // 5 standard parametric EQ bands
       eqNode.addBand(Shape.LowCut, 35, 0, 0.7);
-      eqNode.addBand(Shape.LowShelf, 100, 2.5, 0.8);
-      eqNode.addBand(Shape.Bell, 300, -1.5, 1.4);
-      eqNode.addBand(Shape.Bell, 1000, 0.0, 1.4);
-      eqNode.addBand(Shape.Bell, 3200, 3.5, 1.8);
-      eqNode.addBand(Shape.HighShelf, 8500, 2.0, 0.9);
+      eqNode.addBand(Shape.LowShelf, 120, 3.0, 0.8);
+      eqNode.addBand(Shape.Bell, 800, -2.5, 1.4);
+      eqNode.addBand(Shape.HighShelf, 6000, 2.5, 0.9);
       eqNode.addBand(Shape.HighCut, 18000, 0, 0.7);
 
       // Wire audio nodes
@@ -81,7 +79,7 @@ export const App: React.FC = () => {
     const nextBypass = !isBypassed;
     setIsBypassed(nextBypass);
     for (const band of node.getBands()) {
-      node.setBandParam(band.index, ParamId.Bypass, nextBypass ? 0 : 1);
+      node.setBandParam(band.index, ParamId.Enabled, nextBypass ? 0 : 1);
     }
   };
 

@@ -15,7 +15,7 @@
   top: 6px;
   bottom: 6px;
   width: 4px;
-  background: #2A3040;
+  background: #E4E4E7;
   border-radius: 2px;
 }
 
@@ -25,7 +25,7 @@
   left: 2px;
   right: 2px;
   height: 1.5px;
-  background: #64748B;
+  background: #A1A1AA;
   transform: translateY(-50%);
 }
 
@@ -40,11 +40,11 @@
   left: 50%;
   width: 18px;
   height: 10px;
-  background: #E2E8F0;
-  border: 1.5px solid #000000;
+  background: #FFFFFF;
+  border: 1.5px solid #71717A;
   border-radius: 3px;
   transform: translate(-50%, -50%);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -54,6 +54,6 @@
 .thumbLine {
   width: 10px;
   height: 1.5px;
-  background: #000000;
+  background: #52525B;
   border-radius: 1px;
 }

@@ -3,29 +3,26 @@
   font-family: var(--sonods-font-mono);
   font-size: 19px;
   font-weight: 700;
-  color: var(--sonods-color-text-main);
+  color: #18181B;
   letter-spacing: -0.5px;
-  background: var(--sonods-color-panel-translucent);
   padding: 4px 10px;
-  border-radius: var(--sonods-radius-sm);
+  border-radius: 6px;
   cursor: text;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.label {
-  color: var(--sonods-color-text-main);
-}
+.label { color: #18181B; }
 
 .inlineInput {
   background: transparent;
   border: none;
-  color: var(--sonods-color-text-main);
+  color: #18181B;
   font-family: var(--sonods-font-mono);
   font-size: 18px;
   font-weight: 700;
   width: 110px;
   outline: none;
-  border-bottom: 2px solid var(--sonods-color-text-main);
+  border-bottom: 2px solid #18181B;
 }
