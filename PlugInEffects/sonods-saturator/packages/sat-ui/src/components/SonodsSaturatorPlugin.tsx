@@ -7,8 +7,6 @@ import {
 } from '@sonods/sat-engine';
 import { SaturatorCharacterFace } from './SaturatorCharacterFace.js';
 import { RainbowKnob } from './RainbowKnob.js';
-import { TransferCurveCanvas } from './TransferCurveCanvas.js';
-import { HarmonicVisualizer } from './HarmonicVisualizer.js';
 import '../theme/tokens.css';
 
 export interface SonodsSaturatorPluginProps {
@@ -18,10 +16,9 @@ export interface SonodsSaturatorPluginProps {
 
 export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
   node,
-  width = 680,
+  width = 720,
 }) => {
   const [state, setState] = useState<SaturatorState>(node.getState());
-  const [viewTab, setViewTab] = useState<'curve' | 'harmonics'>('curve');
   const [audioPeak, setAudioPeak] = useState<number>(0);
 
   // Subscribe to node state updates
@@ -32,7 +29,7 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
     return unsub;
   }, [node]);
 
-  // Real-time audio analyser polling loop for reactive face and ball animations
+  // Real-time audio analyser polling loop for reactive face animations
   useEffect(() => {
     let animId: number;
     const dataArray = new Uint8Array(node.postAnalyser.frequencyBinCount);
@@ -172,13 +169,6 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
               ? 'Triode Tube'
               : 'Transformer Core';
 
-          const activeColor =
-            char === 'tape'
-              ? 'var(--sat-color-tape)'
-              : char === 'tube'
-              ? 'var(--sat-color-tube)'
-              : 'var(--sat-color-transformer)';
-
           const activeColorHex =
             char === 'tape'
               ? '#f59e0b'
@@ -212,16 +202,16 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
         })}
       </div>
 
-      {/* --- Main Middle Stage (Character Face & Visualizer) --- */}
+      {/* --- Main Body: 50% Left Avatar | 50% Right Knobs --- */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: '16px',
-          alignItems: 'center',
+          alignItems: 'stretch',
         }}
       >
-        {/* Left: Expressive Animated Character Stage Face */}
+        {/* Left Section: Expressive Animated Character Avatar Stage */}
         <div
           style={{
             display: 'flex',
@@ -231,8 +221,8 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
             background: '#FAFAFA',
             border: '1.5px solid #E4E4E7',
             borderRadius: '16px',
-            padding: '16px',
-            minHeight: '260px',
+            padding: '24px 16px',
+            minHeight: '340px',
           }}
         >
           <SaturatorCharacterFace
@@ -242,125 +232,122 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
           />
         </div>
 
-        {/* Right: Transfer Curve or Harmonic Spectrum Visualizer */}
+        {/* Right Section: 4 Spaced-Out Knobs in a Clean 2x2 Grid */}
         <div
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gridTemplateRows: '1fr 1fr',
+            gap: '20px 16px',
+            alignItems: 'center',
+            justifyItems: 'center',
+            background: '#FAFAFA',
+            border: '1.5px solid #E4E4E7',
+            borderRadius: '16px',
+            padding: '24px 20px',
+            minHeight: '340px',
           }}
         >
-          {/* Visualizer Mode Tabs */}
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button
-              className={`sat-btn ${viewTab === 'curve' ? 'active' : ''}`}
-              onClick={() => setViewTab('curve')}
-            >
-              Transfer Curve
-            </button>
-            <button
-              className={`sat-btn ${viewTab === 'harmonics' ? 'active' : ''}`}
-              onClick={() => setViewTab('harmonics')}
-            >
-              Harmonics
-            </button>
-          </div>
+          {/* Top-Left: Main Drive Knob (Hero size) */}
+          <RainbowKnob
+            label="DRIVE"
+            value={state.drive}
+            min={0.0}
+            max={1.0}
+            step={0.01}
+            defaultValue={0.3}
+            size={84}
+            accentColor={charAccentRaw}
+            displayFormatter={(v) => `${Math.round(v * 100)}%`}
+            onChange={(v) => node.setDrive(v)}
+          />
 
-          <div
-            style={{
-              background: '#FAFAFA',
-              border: '1.5px solid #E4E4E7',
-              borderRadius: '12px',
-              padding: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {viewTab === 'curve' ? (
-              <TransferCurveCanvas
-                node={node}
-                width={280}
-                height={200}
-                audioPeak={audioPeak}
-                accentColor={charAccentRaw}
-              />
-            ) : (
-              <HarmonicVisualizer
-                drive={state.drive}
-                character={state.character}
-                audioPeak={audioPeak}
-              />
-            )}
-          </div>
+          {/* Top-Right: Tone Pre-emphasis Knob */}
+          <RainbowKnob
+            label="TONE"
+            value={state.tone}
+            min={-12.0}
+            max={12.0}
+            step={0.1}
+            defaultValue={0.0}
+            size={74}
+            unit=" dB"
+            onChange={(v) => node.setTone(v)}
+          />
+
+          {/* Bottom-Left: Mix (Dry/Wet) Knob */}
+          <RainbowKnob
+            label="MIX"
+            value={state.mix}
+            min={0.0}
+            max={1.0}
+            step={0.01}
+            defaultValue={1.0}
+            size={74}
+            displayFormatter={(v) => `${Math.round(v * 100)}%`}
+            onChange={(v) => node.setMix(v)}
+          />
+
+          {/* Bottom-Right: Output Gain Trim Knob */}
+          <RainbowKnob
+            label="OUTPUT"
+            value={state.outputGain}
+            min={-24.0}
+            max={24.0}
+            step={0.1}
+            defaultValue={0.0}
+            size={74}
+            unit=" dB"
+            onChange={(v) => node.setOutputGain(v)}
+          />
         </div>
       </div>
 
-      {/* --- Bottom Controls Stage (Rainbow Knobs) --- */}
+      {/* --- Bottom Footer Bar --- */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: '1.2fr 1fr 1fr 1fr',
-          gap: '16px',
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          background: '#FAFAFA',
-          border: '1.5px solid #E4E4E7',
-          borderRadius: '16px',
-          padding: '18px 24px',
+          paddingTop: '6px',
+          borderTop: '1.5px solid #E4E4E7',
         }}
       >
-        {/* Main Drive Knob (Larger size) */}
-        <RainbowKnob
-          label="DRIVE"
-          value={state.drive}
-          min={0.0}
-          max={1.0}
-          step={0.01}
-          defaultValue={0.3}
-          size={84}
-          accentColor={charAccentRaw}
-          displayFormatter={(v) => `${Math.round(v * 100)}%`}
-          onChange={(v) => node.setDrive(v)}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              color: charAccentRaw,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+            }}
+          >
+            Stage {state.drive < 0.25 ? 1 : state.drive < 0.55 ? 2 : state.drive < 0.85 ? 3 : 4}
+          </span>
+          <span style={{ fontSize: '10px', color: '#A1A1AA' }}>•</span>
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 600,
+              color: '#71717A',
+              fontFamily: 'var(--sat-font-mono)',
+            }}
+          >
+            Drive {Math.round(state.drive * 100)}%
+          </span>
+        </div>
 
-        {/* Tone Pre-emphasis Knob */}
-        <RainbowKnob
-          label="TONE"
-          value={state.tone}
-          min={-12.0}
-          max={12.0}
-          step={0.1}
-          defaultValue={0.0}
-          size={68}
-          unit=" dB"
-          onChange={(v) => node.setTone(v)}
-        />
-
-        {/* Mix (Dry/Wet) Knob */}
-        <RainbowKnob
-          label="MIX"
-          value={state.mix}
-          min={0.0}
-          max={1.0}
-          step={0.01}
-          defaultValue={1.0}
-          size={68}
-          displayFormatter={(v) => `${Math.round(v * 100)}%`}
-          onChange={(v) => node.setMix(v)}
-        />
-
-        {/* Output Gain Trim Knob */}
-        <RainbowKnob
-          label="OUTPUT"
-          value={state.outputGain}
-          min={-24.0}
-          max={24.0}
-          step={0.1}
-          defaultValue={0.0}
-          size={68}
-          unit=" dB"
-          onChange={(v) => node.setOutputGain(v)}
-        />
+        <span
+          style={{
+            fontSize: '18px',
+            fontWeight: 800,
+            letterSpacing: '-0.5px',
+            color: '#18181B',
+          }}
+        >
+          SonoDS
+        </span>
       </div>
     </div>
   );
