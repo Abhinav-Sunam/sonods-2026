@@ -1,15 +1,19 @@
 pub mod adaa;
 pub mod antideriv;
 pub mod chain;
+pub mod dynamic_bias;
 pub mod engine;
 pub mod filters;
 pub mod oversampling;
 pub mod smoothing;
+pub mod tape_hysteresis;
 pub mod waveshaper;
 
 pub use chain::SaturatorChannel;
+pub use dynamic_bias::DynamicBiasTracker;
 pub use engine::SaturatorEngine;
 pub use oversampling::Quality;
+pub use tape_hysteresis::JilesAthertonTape;
 pub use waveshaper::{Character, TUBE_DEFAULT_BIAS};
 
 #[no_mangle]
