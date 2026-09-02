@@ -45,15 +45,18 @@
 }
 
 .rackPanel {
-  width: 300px;
-  min-width: 300px;
-  max-width: 300px;
-  background: #FAFAFA;
+  width: 310px;
+  min-width: 310px;
+  max-width: 310px;
+  background: #E8E8EC;
   display: flex;
-  align-items: center;
-  justify-content: space-evenly;
-  padding: 8px 6px;
+  align-items: stretch;
+  justify-content: center;
+  padding: 10px 8px;
+  gap: 6px;
   box-sizing: border-box;
+  border-left: 2px solid #D4D4D8;
+  overflow: hidden;
 }
 
 .bottomBar {

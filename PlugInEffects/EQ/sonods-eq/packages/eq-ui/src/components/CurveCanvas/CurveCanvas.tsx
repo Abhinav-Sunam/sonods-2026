@@ -180,7 +180,7 @@ export const CurveCanvas: React.FC<CurveCanvasProps> = ({
       const freq = xToFrequency(x, rect.width);
       const gain = yToGain(y, rect.height);
 
-      if (currentBands.length >= 7) {
+      if (currentBands.length >= 5) {
         // Select closest band in frequency and drag it
         let closestIndex = currentBands[0].index;
         let minDiff = Infinity;
