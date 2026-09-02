@@ -5,14 +5,19 @@ import { FACTORY_PRESETS, SaturatorPreset, SonodsSaturatorPlugin } from '@sonods
 export const App: React.FC = () => {
   const [node, setNode] = useState<SonodsSaturatorNode | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [signalType, setSignalType] = useState<string>('sine440');
+  const [signalType, setSignalType] = useState<string>('file');
   const [selectedPreset, setSelectedPreset] = useState<string>('tape-master-glue');
   const [isBypassed, setIsBypassed] = useState<boolean>(false);
+  const [fileName, setFileName] = useState<string>('');
+  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
+  const [isDecoding, setIsDecoding] = useState(false);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const oscRef = useRef<OscillatorNode | null>(null);
+  const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const gainRef = useRef<GainNode | null>(null);
   const drumIntervalRef = useRef<number | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
@@ -36,6 +41,27 @@ export const App: React.FC = () => {
     };
   }, []);
 
+  // Handle file upload and decode to AudioBuffer
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !audioCtxRef.current) return;
+
+    setFileName(file.name);
+    setIsDecoding(true);
+    setSignalType('file');
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const decoded = await audioCtxRef.current.decodeAudioData(arrayBuffer);
+      setAudioBuffer(decoded);
+    } catch (err) {
+      console.error('Failed to decode audio file:', err);
+      setFileName('Error decoding file');
+    } finally {
+      setIsDecoding(false);
+    }
+  };
+
   const startSignal = () => {
     if (!audioCtxRef.current || !node) return;
     const ctx = audioCtxRef.current;
@@ -45,7 +71,17 @@ export const App: React.FC = () => {
 
     stopSignal();
 
-    if (signalType === 'sine440' || signalType === 'bass100') {
+    if (signalType === 'file') {
+      if (!audioBuffer) return;
+      const source = ctx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(node.inputNode);
+      source.start();
+      source.onended = () => {
+        setIsPlaying(false);
+      };
+      sourceRef.current = source;
+    } else if (signalType === 'sine440' || signalType === 'bass100') {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.value = signalType === 'sine440' ? 440 : 100;
@@ -61,14 +97,12 @@ export const App: React.FC = () => {
       osc.start();
       oscRef.current = osc;
     } else if (signalType === 'drums') {
-      // Procedural synthesizer 120 BPM drum groove
       let step = 0;
       const bpm = 124;
       const intervalMs = (60 / bpm / 4) * 1000;
 
       drumIntervalRef.current = window.setInterval(() => {
         const now = ctx.currentTime;
-        // Kick on 0, 8
         if (step % 8 === 0) {
           const osc = ctx.createOscillator();
           const g = ctx.createGain();
@@ -81,7 +115,6 @@ export const App: React.FC = () => {
           osc.start(now);
           osc.stop(now + 0.25);
         }
-        // Snare on 4, 12
         if (step % 8 === 4) {
           const osc = ctx.createOscillator();
           const g = ctx.createGain();
@@ -95,7 +128,6 @@ export const App: React.FC = () => {
           osc.start(now);
           osc.stop(now + 0.18);
         }
-        // Hi-hat on every 2 steps
         if (step % 2 === 0) {
           const bufferSize = ctx.sampleRate * 0.04;
           const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
@@ -121,11 +153,12 @@ export const App: React.FC = () => {
 
   const stopSignal = () => {
     if (oscRef.current) {
-      try {
-        oscRef.current.stop();
-        oscRef.current.disconnect();
-      } catch {}
+      try { oscRef.current.stop(); oscRef.current.disconnect(); } catch {}
       oscRef.current = null;
+    }
+    if (sourceRef.current) {
+      try { sourceRef.current.stop(); sourceRef.current.disconnect(); } catch {}
+      sourceRef.current = null;
     }
     if (drumIntervalRef.current) {
       clearInterval(drumIntervalRef.current);
@@ -156,6 +189,8 @@ export const App: React.FC = () => {
     node.setMix(nextBypass ? 0.0 : 1.0);
   };
 
+  const canPlay = signalType !== 'file' || audioBuffer !== null;
+
   return (
     <div
       style={{
@@ -173,7 +208,7 @@ export const App: React.FC = () => {
       {/* --- Global Toolbar & Signal Generator --- */}
       <div
         style={{
-          width: '740px',
+          width: '720px',
           maxWidth: '100%',
           marginBottom: '16px',
           padding: '10px 18px',
@@ -182,97 +217,153 @@ export const App: React.FC = () => {
           border: '1.5px solid #D4D4D8',
           boxShadow: '0 4px 12px rgba(0, 0, 0, 0.06)',
           display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '12px',
+          flexDirection: 'column',
+          gap: '10px',
         }}
       >
-        {/* Audio Signal Source Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <select
-            value={signalType}
-            onChange={(e) => {
-              setSignalType(e.target.value);
-              if (isPlaying) {
-                stopSignal();
-              }
-            }}
-            style={{
-              background: '#FAFAFA',
-              color: '#18181B',
-              border: '1.5px solid #D4D4D8',
-              borderRadius: '6px',
-              padding: '6px 10px',
-              fontSize: '12px',
-              fontWeight: 600,
-            }}
-          >
-            <option value="sine440">440 Hz Sine Wave</option>
-            <option value="bass100">100 Hz Sub Bass</option>
-            <option value="drums">124 BPM Drum Groove</option>
-            <option value="chirp">Logarithmic Frequency Sweep</option>
-          </select>
+        {/* Top row: Source selector + Play/Stop */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <select
+              value={signalType}
+              onChange={(e) => {
+                setSignalType(e.target.value);
+                if (isPlaying) stopSignal();
+              }}
+              style={{
+                background: '#FAFAFA',
+                color: '#18181B',
+                border: '1.5px solid #D4D4D8',
+                borderRadius: '6px',
+                padding: '6px 10px',
+                fontSize: '12px',
+                fontWeight: 600,
+              }}
+            >
+              <option value="file">🎵 Upload Song</option>
+              <option value="sine440">440 Hz Sine Wave</option>
+              <option value="bass100">100 Hz Sub Bass</option>
+              <option value="drums">124 BPM Drum Groove</option>
+              <option value="chirp">Logarithmic Frequency Sweep</option>
+            </select>
 
-          <button
-            onClick={isPlaying ? stopSignal : startSignal}
+            <button
+              onClick={isPlaying ? stopSignal : startSignal}
+              disabled={!canPlay || isDecoding}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '6px',
+                border: 'none',
+                background: !canPlay || isDecoding ? '#D4D4D8' : isPlaying ? '#ef4444' : '#22c55e',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: !canPlay || isDecoding ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                opacity: !canPlay || isDecoding ? 0.6 : 1,
+              }}
+            >
+              {isDecoding ? '⏳ Decoding...' : isPlaying ? '⏹ STOP' : '▶ PLAY'}
+            </button>
+          </div>
+
+          {/* Preset + Bypass */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <select
+              value={selectedPreset}
+              onChange={handlePresetSelect}
+              style={{
+                background: '#FAFAFA',
+                color: '#18181B',
+                border: '1.5px solid #D4D4D8',
+                borderRadius: '6px',
+                padding: '6px 10px',
+                fontSize: '12px',
+                fontWeight: 600,
+              }}
+            >
+              {FACTORY_PRESETS.map((p: SaturatorPreset) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+
+            <button
+              onClick={handleBypassToggle}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                border: isBypassed ? '1.5px solid #eab308' : '1.5px solid #D4D4D8',
+                background: isBypassed ? '#fef9c322' : '#FFFFFF',
+                color: isBypassed ? '#a16207' : '#52525B',
+                fontWeight: 700,
+                fontSize: '11px',
+                cursor: 'pointer',
+              }}
+            >
+              {isBypassed ? 'BYPASSED' : 'ACTIVE'}
+            </button>
+          </div>
+        </div>
+
+        {/* File Upload Row (only when file mode is selected) */}
+        {signalType === 'file' && (
+          <div
             style={{
-              padding: '6px 14px',
-              borderRadius: '6px',
-              border: 'none',
-              background: isPlaying ? '#ef4444' : '#22c55e',
-              color: '#ffffff',
-              fontWeight: 700,
-              fontSize: '12px',
-              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              boxShadow: isPlaying ? '0 0 8px rgba(239, 68, 68, 0.3)' : 'none',
-            }}
-          >
-            {isPlaying ? '⏹ STOP AUDIO' : '▶ PLAY AUDIO'}
-          </button>
-        </div>
-
-        {/* Preset Selector & Bypass */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <select
-            value={selectedPreset}
-            onChange={handlePresetSelect}
-            style={{
+              gap: '10px',
+              padding: '8px 12px',
+              borderRadius: '8px',
               background: '#FAFAFA',
-              color: '#18181B',
-              border: '1.5px solid #D4D4D8',
-              borderRadius: '6px',
-              padding: '6px 10px',
-              fontSize: '12px',
-              fontWeight: 600,
+              border: '1.5px dashed #D4D4D8',
             }}
           >
-            {FACTORY_PRESETS.map((p: SaturatorPreset) => (
-              <option key={p.id} value={p.id}>
-                Preset: {p.name}
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={handleBypassToggle}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '6px',
-              border: isBypassed ? '1.5px solid #eab308' : '1.5px solid #D4D4D8',
-              background: isBypassed ? '#fef9c322' : '#FFFFFF',
-              color: isBypassed ? '#a16207' : '#52525B',
-              fontWeight: 700,
-              fontSize: '11px',
-              cursor: 'pointer',
-            }}
-          >
-            {isBypassed ? 'BYPASSED' : 'ACTIVE'}
-          </button>
-        </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*"
+              onChange={handleFileUpload}
+              style={{ display: 'none' }}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '6px',
+                border: '1.5px solid #D4D4D8',
+                background: '#FFFFFF',
+                color: '#18181B',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              📁 Choose File
+            </button>
+            <span
+              style={{
+                fontSize: '12px',
+                fontWeight: 600,
+                color: fileName ? '#18181B' : '#A1A1AA',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                flex: 1,
+              }}
+            >
+              {isDecoding ? '⏳ Decoding audio...' : fileName || 'No file selected — drop any MP3, WAV, FLAC, etc.'}
+            </span>
+            {audioBuffer && (
+              <span style={{ fontSize: '10px', color: '#71717A', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                {audioBuffer.duration.toFixed(1)}s • {audioBuffer.numberOfChannels}ch • {audioBuffer.sampleRate / 1000}kHz
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* --- Main Plugin Interface --- */}

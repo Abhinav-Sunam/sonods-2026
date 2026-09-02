@@ -14,6 +14,12 @@ export const App: React.FC = () => {
   const [abState, setAbState] = useState<'A' | 'B'>('A');
   const [volume, setVolume] = useState(0.5);
 
+  // File upload states
+  const [fileName, setFileName] = useState<string>('');
+  const [isDecoding, setIsDecoding] = useState(false);
+  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const stateARef = useRef<EqState | null>(null);
   const stateBRef = useRef<EqState | null>(null);
   const simulatedTrackRef = useRef<SessionRegistry | null>(null);
@@ -23,6 +29,10 @@ export const App: React.FC = () => {
       (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     const eqNode = new SonodsEqNode(audioCtx);
     const audioHarness = new AudioHarness(audioCtx);
+
+    audioHarness.onFileEnded = () => {
+      setCurrentSource('stop');
+    };
 
     simulatedTrackRef.current = new SessionRegistry('simulated-remote-session', 'Kick Drum Track');
 
@@ -50,6 +60,26 @@ export const App: React.FC = () => {
       simulatedTrackRef.current?.destroy();
     };
   }, []);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !harness) return;
+
+    setFileName(file.name);
+    setIsDecoding(true);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const decoded = await harness.ctx.decodeAudioData(arrayBuffer);
+      setAudioBuffer(decoded);
+      harness.setFileBuffer(decoded);
+    } catch (err) {
+      console.error('Failed to decode audio file:', err);
+      setFileName('Error decoding audio file');
+    } finally {
+      setIsDecoding(false);
+    }
+  };
 
   const handlePlaySource = (type: SourceType | 'stop') => {
     if (!harness || !node) return;
@@ -145,7 +175,7 @@ export const App: React.FC = () => {
 
       {/* Main EQ Rack Stage */}
       <div className="plugin-stage">
-        <SonodsEq node={node} trackName="Lead Vocal Track" showDevOverlay={false} />
+        <SonodsEq node={node} trackName={fileName ? `Song: ${fileName}` : 'Lead Vocal Track'} showDevOverlay={false} />
       </div>
 
       {/* Interaction Instructions */}
@@ -166,7 +196,7 @@ export const App: React.FC = () => {
         {/* Audio Source Card */}
         <div className="control-card">
           <div className="card-title">
-            <span>Audio Signal Generator</span>
+            <span>Audio Signal Generator & Song Player</span>
             <span
               style={{
                 color: currentSource === 'stop' ? 'var(--text-dim)' : '#84CC16',
@@ -175,6 +205,61 @@ export const App: React.FC = () => {
               {currentSource === 'stop' ? 'Stopped' : `Playing ${currentSource.toUpperCase()}`}
             </span>
           </div>
+
+          {/* Song Upload Area */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              background: 'var(--bg)',
+              border: '1.5px dashed var(--border)',
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*"
+              onChange={handleFileUpload}
+              style={{ display: 'none' }}
+            />
+            <button
+              className="studio-btn"
+              onClick={() => fileInputRef.current?.click()}
+              style={{ fontWeight: 700 }}
+            >
+              📁 Choose Song
+            </button>
+            <span
+              style={{
+                fontSize: '12px',
+                fontWeight: 600,
+                color: fileName ? 'var(--text-main)' : 'var(--text-dim)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                flex: 1,
+              }}
+            >
+              {isDecoding ? '⏳ Decoding audio...' : fileName || 'Upload any song (MP3, WAV, FLAC)'}
+            </span>
+            {audioBuffer && (
+              <button
+                className={`studio-btn ${currentSource === 'file' ? 'active' : ''}`}
+                style={{
+                  background: currentSource === 'file' ? '#22c55e' : undefined,
+                  color: currentSource === 'file' ? '#fff' : undefined,
+                  fontWeight: 700,
+                }}
+                onClick={() => handlePlaySource(currentSource === 'file' ? 'stop' : 'file')}
+              >
+                {currentSource === 'file' ? '⏹ Stop Song' : '▶ Play Song'}
+              </button>
+            )}
+          </div>
+
           <div className="btn-group">
             <button
               className={`studio-btn ${currentSource === 'pad' ? 'active' : ''}`}
@@ -205,7 +290,7 @@ export const App: React.FC = () => {
               style={{ color: '#EF4444' }}
               onClick={() => handlePlaySource('stop')}
             >
-              Stop
+              Stop All
             </button>
           </div>
           <div className="volume-slider">

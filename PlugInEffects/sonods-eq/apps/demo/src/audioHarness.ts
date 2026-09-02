@@ -1,4 +1,4 @@
-export type SourceType = 'pad' | 'pink_noise' | 'sine' | 'drums' | 'mic';
+export type SourceType = 'pad' | 'pink_noise' | 'sine' | 'drums' | 'mic' | 'file';
 
 export class AudioHarness {
   public ctx: AudioContext;
@@ -6,11 +6,17 @@ export class AudioHarness {
   private isPlaying = false;
   private intervalId: number | null = null;
   public masterGain: GainNode;
+  private fileBuffer: AudioBuffer | null = null;
+  public onFileEnded: (() => void) | null = null;
 
   constructor(ctx: AudioContext) {
     this.ctx = ctx;
     this.masterGain = ctx.createGain();
     this.masterGain.gain.value = 0.5;
+  }
+
+  public setFileBuffer(buffer: AudioBuffer) {
+    this.fileBuffer = buffer;
   }
 
   public async play(type: SourceType, destination: AudioNode) {
@@ -20,6 +26,20 @@ export class AudioHarness {
     }
 
     this.isPlaying = true;
+
+    if (type === 'file') {
+      if (!this.fileBuffer) return;
+      const source = this.ctx.createBufferSource();
+      source.buffer = this.fileBuffer;
+      source.connect(destination);
+      source.start();
+      source.onended = () => {
+        this.isPlaying = false;
+        this.onFileEnded?.();
+      };
+      this.currentSourceNode = source;
+      return;
+    }
 
     if (type === 'pink_noise') {
       // Pink noise buffer generator
