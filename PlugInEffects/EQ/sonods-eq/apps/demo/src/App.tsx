@@ -103,9 +103,8 @@ export const App: React.FC = () => {
 
   const handleResetFlat = () => {
     if (!node) return;
-    for (const band of node.getBands()) {
-      node.setBandParam(band.index, ParamId.Gain, 0.0);
-    }
+    node.resetToDefault();
+    setIsBypassed(false);
   };
 
   const handleApplyPreset = (key: 'vocal' | 'kick' | 'bass') => {

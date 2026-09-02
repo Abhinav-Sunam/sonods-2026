@@ -99,9 +99,10 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
 
   const handleResetFlat = useCallback(() => {
     if (!node) return;
-    for (const b of node.getBands()) {
-      node.setBandParam(b.index, ParamId.Gain, 0.0);
-    }
+    node.resetToDefault();
+    setAnnotations([]);
+    setIsBypassed(false);
+    setSelectedBandIndex(0);
   }, [node]);
 
   const handleContextMenu = useCallback((x: number, y: number, bandIndex: number) => {
@@ -237,7 +238,7 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
             {isBypassed ? 'Bypassed' : 'Bypass'}
           </button>
           <button className={styles.controlBtn} onClick={handleResetFlat}>
-            Reset Flat
+            Reset
           </button>
           {showDevOverlay && (
             <span className={styles.devOverlay}>

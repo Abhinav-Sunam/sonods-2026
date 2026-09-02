@@ -335,6 +335,19 @@ export class SonodsEqNode {
     }
   }
 
+  public resetToDefault(): void {
+    for (const band of this.getBands()) {
+      this.removeBand(band.index);
+    }
+    this.addBand(Shape.LowCut, 35, 0.0, 0.7);
+    this.addBand(Shape.LowShelf, 120, 0.0, 0.8);
+    this.addBand(Shape.Bell, 800, 0.0, 1.4);
+    this.addBand(Shape.HighShelf, 6000, 0.0, 0.9);
+    this.addBand(Shape.HighCut, 18000, 0.0, 0.7);
+    this.curveDirty = true;
+    this.notifyState();
+  }
+
   /**
    * Log-spaced frequency curve points with change-based caching (Task 3.2)
    */
