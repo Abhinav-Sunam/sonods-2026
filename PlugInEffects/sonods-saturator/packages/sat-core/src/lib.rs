@@ -10,11 +10,16 @@
 pub mod adaa;
 pub mod antideriv;
 pub mod oversampling;
+pub mod smoothing;
 pub mod waveshaper;
 
 pub use adaa::AdaaState;
 pub use antideriv::{antideriv1, antideriv2};
 pub use oversampling::{HalfBand2x, OversampledSaturator, Quality};
+pub use smoothing::{
+    CharacterCrossfader, SmoothedParam, CHARACTER_CROSSFADE_MS, DRIVE_SMOOTHING_MS,
+    MIX_SMOOTHING_MS, OUTPUT_SMOOTHING_MS, TONE_SMOOTHING_MS,
+};
 pub use waveshaper::{
     shape, shape_tape, shape_transformer, shape_tube, Character, TRANSFORMER_K_SCALE,
     TRANSFORMER_TUBE_BLEND, TUBE_DEFAULT_BIAS,
