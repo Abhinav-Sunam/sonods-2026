@@ -20,11 +20,9 @@ pub mod smoother;
 
 pub use compressor::{CompressorCharacter, CompressorCore};
 
-use wasm_bindgen::prelude::*;
-
-#[wasm_bindgen]
-pub fn comp_core_version() -> String {
-    "0.1.0".to_string()
+#[no_mangle]
+pub extern "C" fn comp_core_version() -> u32 {
+    1
 }
 
 // =========================================================================
