@@ -1,0 +1,55 @@
+.chassis {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 380px;
+  background: var(--sonods-color-bg);
+  border: 3.5px solid var(--sonods-color-chassis-border);
+  border-radius: var(--sonods-radius-chassis);
+  box-shadow: var(--sonods-shadow-chassis);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  user-select: none;
+  font-family: var(--sonods-font-sans);
+}
+
+.topBar {
+  position: absolute;
+  top: 14px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* SonoDS Brand signature from bottom-right of hand-drawn sketch */
+.sonodsBrand {
+  position: absolute;
+  bottom: 16px;
+  right: 24px;
+  font-family: var(--sonods-font-sans);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--sonods-color-text-main);
+  opacity: 0.9;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Dev performance overlay */
+.devOverlay {
+  position: absolute;
+  bottom: 12px;
+  left: 16px;
+  font-family: var(--sonods-font-mono);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  pointer-events: none;
+  z-index: 10;
+}

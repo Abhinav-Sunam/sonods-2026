@@ -1,0 +1,33 @@
+.readout {
+  pointer-events: auto;
+  font-family: var(--sonods-font-mono);
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--sonods-color-text-main);
+  letter-spacing: -0.5px;
+  background: var(--sonods-color-panel-translucent);
+  backdrop-filter: blur(8px);
+  padding: 4px 12px;
+  border-radius: var(--sonods-radius-sm);
+  border: 1px solid var(--sonods-color-border);
+  cursor: text;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.label {
+  color: var(--sonods-color-accent);
+}
+
+.inlineInput {
+  background: transparent;
+  border: none;
+  color: var(--sonods-color-text-main);
+  font-family: var(--sonods-font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  width: 110px;
+  outline: none;
+  border-bottom: 1.5px solid var(--sonods-color-accent);
+}
