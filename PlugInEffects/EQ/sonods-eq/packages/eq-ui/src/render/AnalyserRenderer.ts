@@ -40,7 +40,7 @@ export class AnalyserRenderer {
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // Pre-EQ trace (soft translucent blue)
+    // Pre-EQ trace (subtle cool gray/sky tint)
     if (showPre && preData && preData.length > 0) {
       this.smoothedPre = this.smoothTrace(this.smoothedPre, preData, 0.25, 0.08);
       this.drawTrace(
@@ -51,12 +51,12 @@ export class AnalyserRenderer {
         height,
         minDb,
         maxDb,
-        'rgba(56, 189, 248, 0.12)',
-        'rgba(56, 189, 248, 0.35)'
+        'rgba(14, 165, 233, 0.06)',
+        'rgba(14, 165, 233, 0.25)'
       );
     }
 
-    // Post-EQ trace (soft translucent lime green)
+    // Post-EQ trace (subtle soft green tint)
     if (showPost && postData && postData.length > 0) {
       this.smoothedPost = this.smoothTrace(this.smoothedPost, postData, 0.35, 0.08);
       this.drawTrace(
@@ -67,8 +67,8 @@ export class AnalyserRenderer {
         height,
         minDb,
         maxDb,
-        'rgba(132, 204, 22, 0.16)',
-        'rgba(163, 230, 53, 0.45)'
+        'rgba(132, 204, 22, 0.08)',
+        'rgba(101, 163, 13, 0.35)'
       );
     }
 

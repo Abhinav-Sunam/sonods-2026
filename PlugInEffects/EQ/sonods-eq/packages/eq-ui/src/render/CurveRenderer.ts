@@ -15,8 +15,8 @@ export interface RenderOptions {
   selectedBandIndex: number | null;
   hoveredBandIndex: number | null;
   ghostCurves?: { bandIndex: number; points: CurvePoint[] }[];
-  accentColor?: string;
-  glowColor?: string;
+  curveColor?: string;
+  handleColor?: string;
 }
 
 export class CurveRenderer {
@@ -36,20 +36,19 @@ export class CurveRenderer {
       selectedBandIndex,
       hoveredBandIndex,
       ghostCurves = [],
-      accentColor = '#84CC16',
-      glowColor = 'rgba(132, 204, 22, 0.65)',
+      curveColor = '#18181B',
+      handleColor = '#84CC16',
     } = options;
 
     const ctx = this.ctx;
 
-    // Reset transform & clear
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
 
-    // 1. Subtle 0 dB center baseline (clean ungridded background per spec)
+    // 1. Subtle 0 dB center reference line (clean ungridded background per spec)
     const zeroY = gainToY(0, height);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.strokeStyle = '#E4E4E7';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
     ctx.beginPath();
@@ -58,11 +57,11 @@ export class CurveRenderer {
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // 2. Ghost curves for selected band
+    // 2. Ghost curves for selected band (light transparent dark stroke)
     if (selectedBandIndex !== null) {
       for (const ghost of ghostCurves) {
         if (ghost.bandIndex === selectedBandIndex && ghost.points.length > 1) {
-          ctx.strokeStyle = 'rgba(132, 204, 22, 0.25)';
+          ctx.strokeStyle = 'rgba(24, 24, 27, 0.25)';
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           this.drawSmoothCurvePath(ctx, ghost.points, width, height);
@@ -71,44 +70,18 @@ export class CurveRenderer {
       }
     }
 
-    // 3. Main glowing response curve
+    // 3. Main response curve - Solid, confident dark line, NO glow / NO bloom
     if (curvePoints.length > 1) {
-      // Background gradient under curve
-      const gradient = ctx.createLinearGradient(0, 0, 0, height);
-      gradient.addColorStop(0, 'rgba(132, 204, 22, 0.12)');
-      gradient.addColorStop(0.5, 'rgba(132, 204, 22, 0.03)');
-      gradient.addColorStop(1, 'rgba(132, 204, 22, 0.0)');
-
-      ctx.beginPath();
-      this.drawSmoothCurvePath(ctx, curvePoints, width, height);
-      ctx.lineTo(width, height);
-      ctx.lineTo(0, height);
-      ctx.closePath();
-      ctx.fillStyle = gradient;
-      ctx.fill();
-
-      // Outer glow pass
-      ctx.save();
-      ctx.shadowColor = glowColor;
-      ctx.shadowBlur = 12;
-      ctx.strokeStyle = accentColor;
-      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = curveColor;
+      ctx.lineWidth = 2.75;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.beginPath();
       this.drawSmoothCurvePath(ctx, curvePoints, width, height);
       ctx.stroke();
-      ctx.restore();
-
-      // Bright lime core line
-      ctx.strokeStyle = '#D9F99D';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      this.drawSmoothCurvePath(ctx, curvePoints, width, height);
-      ctx.stroke();
     }
 
-    // 4. Band Handles (circular green fill + gold ring matching sketch)
+    // 4. Band Handles (Solid flat green dots from REF-SKETCH)
     for (const band of bands) {
       if (!band.enabled) continue;
 
@@ -117,7 +90,7 @@ export class CurveRenderer {
       const isSelected = band.index === selectedBandIndex;
       const isHovered = band.index === hoveredBandIndex;
 
-      this.drawBandHandle(ctx, bx, by, isSelected, isHovered, band);
+      this.drawBandHandle(ctx, bx, by, isSelected, isHovered, handleColor, band);
     }
 
     ctx.restore();
@@ -165,41 +138,27 @@ export class CurveRenderer {
     y: number,
     isSelected: boolean,
     isHovered: boolean,
+    handleColor: string,
     band?: BandState
   ): void {
-    const radius = isSelected ? 8 : isHovered ? 7 : 6;
+    const radius = isSelected ? 6.5 : isHovered ? 6.0 : 5.0;
 
-    ctx.save();
-    if (isSelected || isHovered) {
-      ctx.shadowColor = 'rgba(132, 204, 22, 0.9)';
-      ctx.shadowBlur = 10;
-    }
-
-    // Outer gold ring
-    ctx.beginPath();
-    ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
-    ctx.fillStyle = isSelected ? 'rgba(234, 179, 8, 0.9)' : 'rgba(202, 138, 4, 0.6)';
-    ctx.fill();
-
-    // Inner lime green core
+    // Solid flat green circle
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fillStyle = '#84CC16';
+    ctx.fillStyle = isSelected ? '#4D7C0F' : handleColor;
     ctx.fill();
 
-    // Center bright dot
-    ctx.beginPath();
-    ctx.arc(x, y, radius * 0.45, 0, Math.PI * 2);
-    ctx.fillStyle = '#FEF08A';
-    ctx.fill();
-
-    ctx.restore();
+    // Subtle dark border ring
+    ctx.lineWidth = isSelected ? 2.0 : 1.5;
+    ctx.strokeStyle = isSelected ? '#18181B' : '#65A30D';
+    ctx.stroke();
 
     // Dynamic EQ range bracket
     if (band && band.dynamicEnabled && Math.abs(band.dynamicRange) > 0.5) {
       const rangeOffset = (band.dynamicRange / 60) * 100;
-      ctx.strokeStyle = 'rgba(234, 179, 8, 0.7)';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#65A30D';
+      ctx.lineWidth = 1.5;
       ctx.setLineDash([2, 2]);
       ctx.beginPath();
       ctx.moveTo(x, y);

@@ -6,10 +6,8 @@
   color: var(--sonods-color-text-main);
   letter-spacing: -0.5px;
   background: var(--sonods-color-panel-translucent);
-  backdrop-filter: blur(8px);
-  padding: 4px 12px;
+  padding: 4px 10px;
   border-radius: var(--sonods-radius-sm);
-  border: 1px solid var(--sonods-color-border);
   cursor: text;
   display: flex;
   align-items: center;
@@ -17,7 +15,7 @@
 }
 
 .label {
-  color: var(--sonods-color-accent);
+  color: var(--sonods-color-text-main);
 }
 
 .inlineInput {
@@ -29,5 +27,5 @@
   font-weight: 700;
   width: 110px;
   outline: none;
-  border-bottom: 1.5px solid var(--sonods-color-accent);
+  border-bottom: 2px solid var(--sonods-color-text-main);
 }

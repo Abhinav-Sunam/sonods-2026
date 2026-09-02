@@ -1,25 +1,21 @@
 .trafficLights {
   pointer-events: auto;
   display: flex;
-  gap: 8px;
+  gap: 7px;
   align-items: center;
-  background: var(--sonods-color-panel-translucent);
-  backdrop-filter: blur(8px);
-  padding: 6px 10px;
-  border-radius: var(--sonods-radius-card);
-  border: 1px solid var(--sonods-color-border);
+  padding: 6px 8px;
 }
 
 .dot {
-  width: 10px;
-  height: 10px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  transition: all var(--sonods-transition-fast);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  transition: opacity var(--sonods-transition-fast);
 }
 
 .dotGreen {
   background: var(--sonods-color-status-green);
-  box-shadow: 0 0 8px rgba(34, 197, 94, 0.8);
 }
 
 .dotAmber {
@@ -29,7 +25,6 @@
 
 .dotAmber.active {
   opacity: 1;
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.9);
 }
 
 .dotRed {
@@ -39,5 +34,4 @@
 
 .dotRed.active {
   opacity: 1;
-  box-shadow: 0 0 8px rgba(239, 68, 68, 0.9);
 }

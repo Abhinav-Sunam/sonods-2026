@@ -30,14 +30,13 @@
 /* SonoDS Brand signature from bottom-right of hand-drawn sketch */
 .sonodsBrand {
   position: absolute;
-  bottom: 16px;
-  right: 24px;
+  bottom: 18px;
+  right: 26px;
   font-family: var(--sonods-font-sans);
   font-size: 22px;
   font-weight: 800;
   letter-spacing: -0.5px;
   color: var(--sonods-color-text-main);
-  opacity: 0.9;
   pointer-events: none;
   z-index: 10;
 }
@@ -49,7 +48,7 @@
   left: 16px;
   font-family: var(--sonods-font-mono);
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--sonods-color-text-dim);
   pointer-events: none;
   z-index: 10;
 }

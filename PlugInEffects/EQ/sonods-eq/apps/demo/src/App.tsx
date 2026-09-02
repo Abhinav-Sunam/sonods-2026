@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { EqState, PhaseMode, Shape, SonodsEqNode } from '@sonods/eq-engine';
+import { EqState, ParamId, PhaseMode, Shape, SonodsEqNode } from '@sonods/eq-engine';
 import { SonodsEq, INSTRUMENT_PRESETS, applyPresetWithAnimation, SessionRegistry } from '@sonods/eq-ui';
 import { AudioHarness, SourceType } from './audioHarness';
 import './style.css';
@@ -27,7 +27,7 @@ export const App: React.FC = () => {
     simulatedTrackRef.current = new SessionRegistry('simulated-remote-session', 'Kick Drum Track');
 
     eqNode.whenReady().then(() => {
-      // Add default musical curve matching sketch
+      // Add default curve matching sketch
       eqNode.addBand(Shape.LowCut, 35, 0, 0.7);
       eqNode.addBand(Shape.LowShelf, 100, 3.5, 0.8);
       eqNode.addBand(Shape.Bell, 450, -2.5, 1.4);
@@ -136,26 +136,15 @@ export const App: React.FC = () => {
       <header className="header">
         <div className="brand-title">
           <h1>SonoDS Studio EQ</h1>
-          <span className="badge">Rust WASM Core</span>
-          <span
-            className="badge"
-            style={{
-              background: 'rgba(234, 179, 8, 0.15)',
-              color: '#EAB308',
-              borderColor: 'rgba(234, 179, 8, 0.4)',
-            }}
-          >
-            React UI
-          </span>
         </div>
         <div className="status-badge" id="dsp-status">
-          DSP Engine: {dspStatus}
+          {dspStatus}
         </div>
       </header>
 
       {/* Main EQ Rack Stage */}
       <div className="plugin-stage">
-        <SonodsEq node={node} trackName="Lead Vocal Track" showDevOverlay={true} />
+        <SonodsEq node={node} trackName="Lead Vocal Track" showDevOverlay={false} />
       </div>
 
       {/* Interaction Instructions */}
@@ -192,32 +181,32 @@ export const App: React.FC = () => {
               className={`studio-btn ${currentSource === 'pad' ? 'active' : ''}`}
               onClick={() => handlePlaySource('pad')}
             >
-              🎹 Synth Pad
+              Synth Pad
             </button>
             <button
               className={`studio-btn ${currentSource === 'drums' ? 'active' : ''}`}
               onClick={() => handlePlaySource('drums')}
             >
-              🥁 Drum Loop
+              Drum Loop
             </button>
             <button
               className={`studio-btn ${currentSource === 'pink_noise' ? 'active' : ''}`}
               onClick={() => handlePlaySource('pink_noise')}
             >
-              📻 Pink Noise
+              Pink Noise
             </button>
             <button
               className={`studio-btn ${currentSource === 'sine' ? 'active' : ''}`}
               onClick={() => handlePlaySource('sine')}
             >
-              〰️ 450Hz Sine
+              450Hz Sine
             </button>
             <button
               className="studio-btn"
-              style={{ color: '#F87171' }}
+              style={{ color: '#EF4444' }}
               onClick={() => handlePlaySource('stop')}
             >
-              ⏹ Stop
+              Stop
             </button>
           </div>
           <div className="volume-slider">
@@ -280,28 +269,28 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Cross-Track Awareness & AI Assist Card */}
+        {/* Cross-Track Awareness & Presets */}
         <div className="control-card">
           <div className="card-title">
-            <span>Cross-Track AI Awareness (Phase 6)</span>
+            <span>Cross-Track AI Awareness</span>
           </div>
           <div className="btn-group">
             <button className="studio-btn" onClick={handleSimulateKickConflict}>
-              Simulate Kick Drum Conflict
+              Simulate Kick Conflict
             </button>
             <button className="studio-btn" onClick={handleSimulateBassConflict}>
-              Simulate Bassline Conflict
+              Simulate Bass Conflict
             </button>
           </div>
           <div className="btn-group">
             <button className="studio-btn" onClick={() => handleApplyPreset('vocal')}>
-              🎤 Vocal Preset
+              Vocal Preset
             </button>
             <button className="studio-btn" onClick={() => handleApplyPreset('kick')}>
-              🥁 Kick Preset
+              Kick Preset
             </button>
             <button className="studio-btn" onClick={() => handleApplyPreset('bass')}>
-              🎸 Bass Preset
+              Bass Preset
             </button>
           </div>
         </div>
