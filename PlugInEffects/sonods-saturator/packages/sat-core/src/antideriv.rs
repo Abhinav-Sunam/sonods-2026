@@ -51,7 +51,7 @@ pub fn g_antideriv_ln_cosh(u: f64) -> f64 {
 pub fn antideriv1(x: f64, drive: f64, character: Character) -> f64 {
     match character {
         Character::Tape => {
-            if drive.abs() < 1e-7 {
+            if drive.abs() < 1e-4 {
                 0.5 * x * x
             } else {
                 let denom = drive * drive.tanh();
@@ -63,7 +63,7 @@ pub fn antideriv1(x: f64, drive: f64, character: Character) -> f64 {
             }
         }
         Character::Tube => {
-            if drive.abs() < 1e-7 {
+            if drive.abs() < 1e-4 {
                 0.5 * x * x
             } else {
                 let bias = TUBE_DEFAULT_BIAS;
@@ -78,21 +78,23 @@ pub fn antideriv1(x: f64, drive: f64, character: Character) -> f64 {
             }
         }
         Character::Transformer => {
-            let k = TRANSFORMER_K_SCALE * (drive / (1.0 + drive.abs()));
-            let tape_f1 = antideriv1(x, drive, Character::Tape);
-            // Integral of (tanh(Dx)/A)^2 = (1 - tanh(Dx)/Dx) / A^2
-            // \int_0^x tanh^2(D t) dt = x - tanh(D x) / D.
-            let sign = if x >= 0.0 { 1.0 } else { -1.0 };
-            let a = drive.tanh();
-            let a2 = a * a;
-            let int_tanh2 = if drive.abs() < 1e-7 || a2.abs() < 1e-7 {
-                (x * x * x) / 3.0
+            if drive.abs() < 1e-4 {
+                0.5 * x * x
             } else {
-                (x - (drive * x).tanh() / drive) / a2
-            };
-            let quad_f1 = tape_f1 - sign * k * int_tanh2;
-            let tube_f1 = antideriv1(x, drive, Character::Tube);
-            (1.0 - TRANSFORMER_TUBE_BLEND) * quad_f1 + TRANSFORMER_TUBE_BLEND * tube_f1
+                let k = TRANSFORMER_K_SCALE * (drive / (1.0 + drive.abs()));
+                let tape_f1 = antideriv1(x, drive, Character::Tape);
+                let sign = if x >= 0.0 { 1.0 } else { -1.0 };
+                let a = drive.tanh();
+                let a2 = a * a;
+                let int_tanh2 = if drive.abs() < 1e-7 || a2.abs() < 1e-7 {
+                    (x * x * x) / 3.0
+                } else {
+                    (x - (drive * x).tanh() / drive) / a2
+                };
+                let quad_f1 = tape_f1 - sign * k * int_tanh2;
+                let tube_f1 = antideriv1(x, drive, Character::Tube);
+                (1.0 - TRANSFORMER_TUBE_BLEND) * quad_f1 + TRANSFORMER_TUBE_BLEND * tube_f1
+            }
         }
     }
 }
@@ -101,7 +103,7 @@ pub fn antideriv1(x: f64, drive: f64, character: Character) -> f64 {
 pub fn antideriv2(x: f64, drive: f64, character: Character) -> f64 {
     match character {
         Character::Tape => {
-            if drive.abs() < 1e-7 {
+            if drive.abs() < 1e-4 {
                 x.powi(3) / 6.0
             } else {
                 let denom = drive * drive * drive.tanh();
@@ -113,7 +115,7 @@ pub fn antideriv2(x: f64, drive: f64, character: Character) -> f64 {
             }
         }
         Character::Tube => {
-            if drive.abs() < 1e-7 {
+            if drive.abs() < 1e-4 {
                 x.powi(3) / 6.0
             } else {
                 let bias = TUBE_DEFAULT_BIAS;
@@ -127,20 +129,23 @@ pub fn antideriv2(x: f64, drive: f64, character: Character) -> f64 {
             }
         }
         Character::Transformer => {
-            let k = TRANSFORMER_K_SCALE * (drive / (1.0 + drive.abs()));
-            let tape_f2 = antideriv2(x, drive, Character::Tape);
-            let sign = if x >= 0.0 { 1.0 } else { -1.0 };
-            let a = drive.tanh();
-            let a2 = a * a;
-            // \int_0^x (t - tanh(D t) / D) dt = x^2 / 2 - ln(cosh(D x)) / D^2
-            let int_tanh2_f2 = if drive.abs() < 1e-7 || a2.abs() < 1e-7 {
-                (x * x * x * x) / 12.0
+            if drive.abs() < 1e-4 {
+                x.powi(3) / 6.0
             } else {
-                (0.5 * x * x - ln_cosh(drive * x) / (drive * drive)) / a2
-            };
-            let quad_f2 = tape_f2 - sign * k * int_tanh2_f2;
-            let tube_f2 = antideriv2(x, drive, Character::Tube);
-            (1.0 - TRANSFORMER_TUBE_BLEND) * quad_f2 + TRANSFORMER_TUBE_BLEND * tube_f2
+                let k = TRANSFORMER_K_SCALE * (drive / (1.0 + drive.abs()));
+                let tape_f2 = antideriv2(x, drive, Character::Tape);
+                let sign = if x >= 0.0 { 1.0 } else { -1.0 };
+                let a = drive.tanh();
+                let a2 = a * a;
+                let int_tanh2_f2 = if drive.abs() < 1e-7 || a2.abs() < 1e-7 {
+                    (x * x * x * x) / 12.0
+                } else {
+                    (0.5 * x * x - ln_cosh(drive * x) / (drive * drive)) / a2
+                };
+                let quad_f2 = tape_f2 - sign * k * int_tanh2_f2;
+                let tube_f2 = antideriv2(x, drive, Character::Tube);
+                (1.0 - TRANSFORMER_TUBE_BLEND) * quad_f2 + TRANSFORMER_TUBE_BLEND * tube_f2
+            }
         }
     }
 }

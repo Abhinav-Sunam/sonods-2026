@@ -28,7 +28,7 @@ pub fn shape(x: f64, drive: f64, character: Character) -> f64 {
 
 #[inline]
 pub fn shape_tape(x: f64, drive: f64) -> f64 {
-    if drive.abs() < 1e-7 {
+    if drive.abs() < 1e-4 {
         x
     } else {
         let denom = drive.tanh();
@@ -42,22 +42,27 @@ pub fn shape_tape(x: f64, drive: f64) -> f64 {
 
 #[inline]
 pub fn shape_tube(x: f64, drive: f64, bias: f64) -> f64 {
-    if drive.abs() < 1e-7 {
+    if drive.abs() < 1e-4 {
         x
     } else {
         let denom = drive.tanh();
         let scale = if denom.abs() < 1e-7 { 1.0 } else { 1.0 / denom };
+        // Includes the DC-offset correction term: - tanh(drive * bias)
         ((drive * (x + bias)).tanh() - (drive * bias).tanh()) * scale
     }
 }
 
 #[inline]
 pub fn shape_transformer(x: f64, drive: f64) -> f64 {
-    let tape_part = shape_tape(x, drive);
-    let k = TRANSFORMER_K_SCALE * (drive / (1.0 + drive.abs()));
-    let quad = tape_part - k * tape_part * tape_part.abs();
-    let tube_part = shape_tube(x, drive, TUBE_DEFAULT_BIAS);
-    (1.0 - TRANSFORMER_TUBE_BLEND) * quad + TRANSFORMER_TUBE_BLEND * tube_part
+    if drive.abs() < 1e-4 {
+        x
+    } else {
+        let tape_part = shape_tape(x, drive);
+        let k = TRANSFORMER_K_SCALE * (drive / (1.0 + drive.abs()));
+        let quad = tape_part - k * tape_part * tape_part.abs();
+        let tube_part = shape_tube(x, drive, TUBE_DEFAULT_BIAS);
+        (1.0 - TRANSFORMER_TUBE_BLEND) * quad + TRANSFORMER_TUBE_BLEND * tube_part
+    }
 }
 
 #[cfg(test)]
@@ -66,7 +71,7 @@ mod tests {
 
     #[test]
     fn test_tube_dc_offset_is_zero_at_x_zero() {
-        let drives = [0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0];
+        let drives = [0.0, 0.01, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 20.0];
         let biases = [0.0, 0.05, 0.1, 0.2, 0.35, 0.5, 0.8];
 
         for &drive in &drives {
@@ -85,7 +90,7 @@ mod tests {
 
     #[test]
     fn test_tape_zero_and_symmetry() {
-        let drives = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0];
+        let drives = [0.0, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0];
         for &drive in &drives {
             assert!(shape_tape(0.0, drive).abs() < 1e-12);
             for &x in &[0.1, 0.5, 0.9, 1.5] {
@@ -98,7 +103,7 @@ mod tests {
 
     #[test]
     fn test_transformer_zero_at_x_zero() {
-        let drives = [0.1, 0.5, 1.0, 2.0, 5.0, 10.0];
+        let drives = [0.0, 0.1, 0.5, 1.0, 2.0, 5.0, 10.0];
         for &drive in &drives {
             let out = shape_transformer(0.0, drive);
             assert!(
@@ -113,7 +118,7 @@ mod tests {
     #[test]
     fn test_curves_grid_evaluation() {
         let x_grid: Vec<f64> = (-20..=20).map(|i| i as f64 * 0.1).collect();
-        let drives = [0.2, 0.5, 1.0, 2.0, 4.0, 8.0];
+        let drives = [0.0, 0.2, 0.5, 1.0, 2.0, 4.0, 8.0];
 
         for &drive in &drives {
             for &x in &x_grid {
