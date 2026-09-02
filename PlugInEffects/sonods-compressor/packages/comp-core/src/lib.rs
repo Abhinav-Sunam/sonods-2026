@@ -11,6 +11,7 @@
 
 pub mod detector;
 pub mod gain_computer;
+pub mod smoother;
 
 use wasm_bindgen::prelude::*;
 
