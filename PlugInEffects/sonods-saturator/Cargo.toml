@@ -1,5 +1,11 @@
 [workspace]
-resolver = "2"
 members = [
-    "packages/sat-core",
+    "packages/sat-core"
 ]
+resolver = "2"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"

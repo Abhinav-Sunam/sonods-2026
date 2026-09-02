@@ -6,6 +6,10 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "sat_debug"
+path = "src/bin/sat_debug.rs"
+
 [dependencies]
 wasm-bindgen = "0.2"
 

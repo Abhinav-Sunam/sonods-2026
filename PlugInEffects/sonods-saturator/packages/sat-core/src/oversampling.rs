@@ -1,7 +1,6 @@
 //! Polyphase FIR oversampler (2x and 4x factors) combined with 2nd-order ADAA.
 
 use crate::adaa::AdaaState;
-use crate::filters::flush_denormal;
 use crate::waveshaper::Character;
 use std::f64::consts::PI;
 
@@ -14,6 +13,9 @@ pub enum Quality {
 const TAPS_LEN: usize = 43; // 43 taps halfband FIR (M = 21)
 const HALF_M: usize = 21;
 const BUFFER_LEN: usize = 64;
+const BUFFER_MASK: usize = 63;
+const DOWN_BUFFER_LEN: usize = 128;
+const DOWN_BUFFER_MASK: usize = 127;
 
 fn bessel_i0(x: f64) -> f64 {
     let mut sum = 1.0;
@@ -65,10 +67,11 @@ fn compute_halfband_taps() -> [f64; TAPS_LEN] {
 /// Polyphase 2x Half-band Interpolator and Decimator.
 #[derive(Debug, Clone)]
 pub struct HalfBand2x {
-    taps: [f64; TAPS_LEN],
+    center_tap: f64,
+    even_taps: [(usize, f64); 22],
     pub up_buf: [f64; BUFFER_LEN],
     up_pos: usize,
-    pub down_buf: [f64; BUFFER_LEN * 2],
+    pub down_buf: [f64; DOWN_BUFFER_LEN],
     down_pos: usize,
 }
 
@@ -80,11 +83,23 @@ impl Default for HalfBand2x {
 
 impl HalfBand2x {
     pub fn new() -> Self {
+        let taps = compute_halfband_taps();
+        let mut even_taps = [(0, 0.0); 22];
+        let mut idx = 0;
+
+        for (i, &coef) in taps.iter().enumerate() {
+            if i % 2 == 0 && idx < 22 {
+                even_taps[idx] = (i, coef);
+                idx += 1;
+            }
+        }
+
         Self {
-            taps: compute_halfband_taps(),
+            center_tap: taps[HALF_M],
+            even_taps,
             up_buf: [0.0; BUFFER_LEN],
             up_pos: 0,
-            down_buf: [0.0; BUFFER_LEN * 2],
+            down_buf: [0.0; DOWN_BUFFER_LEN],
             down_pos: 0,
         }
     }
@@ -101,40 +116,42 @@ impl HalfBand2x {
     }
 
     /// 2x Upsample 1 input sample into 2 oversampled samples.
-    #[inline]
+    #[inline(always)]
     pub fn upsample_2x(&mut self, input: f64) -> (f64, f64) {
-        self.up_buf[self.up_pos] = flush_denormal(input);
+        self.up_buf[self.up_pos] = input;
 
-        let delay_idx = (self.up_pos + BUFFER_LEN - (HALF_M / 2)) % BUFFER_LEN;
+        let delay_idx = (self.up_pos + BUFFER_LEN - (HALF_M / 2)) & BUFFER_MASK;
         let s1 = self.up_buf[delay_idx];
 
         let mut s0 = 0.0;
-        for i in (0..TAPS_LEN).step_by(2) {
+        let up_p = self.up_pos + BUFFER_LEN;
+        for &(i, coef) in &self.even_taps {
             let k = i / 2;
-            let buf_idx = (self.up_pos + BUFFER_LEN - k) % BUFFER_LEN;
-            s0 += self.up_buf[buf_idx] * (self.taps[i] * 2.0);
+            let buf_idx = (up_p - k) & BUFFER_MASK;
+            s0 += self.up_buf[buf_idx] * (coef * 2.0);
         }
 
-        self.up_pos = (self.up_pos + 1) % BUFFER_LEN;
-        (flush_denormal(s0), flush_denormal(s1))
+        self.up_pos = (self.up_pos + 1) & BUFFER_MASK;
+        (s0, s1)
     }
 
     /// 2x Downsample 2 oversampled samples into 1 output sample.
-    #[inline]
+    #[inline(always)]
     pub fn downsample_2x(&mut self, s0: f64, s1: f64) -> f64 {
-        self.down_buf[self.down_pos] = flush_denormal(s0);
-        self.down_pos = (self.down_pos + 1) % (BUFFER_LEN * 2);
-        self.down_buf[self.down_pos] = flush_denormal(s1);
+        self.down_buf[self.down_pos] = s0;
+        let next_pos = (self.down_pos + 1) & DOWN_BUFFER_MASK;
+        self.down_buf[next_pos] = s1;
 
-        let mut out = 0.0;
-        let buf_len = BUFFER_LEN * 2;
-        for (i, &coef) in self.taps.iter().enumerate() {
-            let idx = (self.down_pos + buf_len - i) % buf_len;
+        let p = next_pos + DOWN_BUFFER_LEN;
+        let mut out = self.down_buf[(p - HALF_M) & DOWN_BUFFER_MASK] * self.center_tap;
+
+        for &(i, coef) in &self.even_taps {
+            let idx = (p - i) & DOWN_BUFFER_MASK;
             out += self.down_buf[idx] * coef;
         }
 
-        self.down_pos = (self.down_pos + 1) % buf_len;
-        flush_denormal(out)
+        self.down_pos = (next_pos + 1) & DOWN_BUFFER_MASK;
+        out
     }
 }
 
@@ -174,7 +191,7 @@ impl OversampledSaturator {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn process_sample(
         &mut self,
         input: f64,

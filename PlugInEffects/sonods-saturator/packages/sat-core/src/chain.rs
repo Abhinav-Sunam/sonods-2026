@@ -9,7 +9,7 @@ use crate::smoothing::{
 use crate::waveshaper::Character;
 
 /// Analytic closed-form makeup-gain calculation per §1.7.
-#[inline]
+#[inline(always)]
 pub fn calculate_auto_gain(drive_norm: f64, character: Character) -> f64 {
     let drive_val = drive_norm.clamp(0.0, 1.0);
 
@@ -109,6 +109,7 @@ impl SaturatorChannel {
     }
 
     /// Process a block of samples in place.
+    #[inline(always)]
     pub fn process_block(&mut self, buffer: &mut [f64]) {
         for sample in buffer.iter_mut() {
             *sample = self.process_sample(*sample);
@@ -116,7 +117,7 @@ impl SaturatorChannel {
     }
 
     /// Process a single audio sample through the full signal chain per §1.5 ordering.
-    #[inline]
+    #[inline(always)]
     pub fn process_sample(&mut self, input: f64) -> f64 {
         let drive_val = self.drive_param.tick();
         let tone_val = self.tone_param.tick();
