@@ -9,6 +9,8 @@
 //! Giannoulis, Massberg & Reiss, "Digital Dynamic Range Compressor Design — A Tutorial and Analysis",
 //! JAES vol. 60 no. 6, 2012.
 
+pub mod gain_computer;
+
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
