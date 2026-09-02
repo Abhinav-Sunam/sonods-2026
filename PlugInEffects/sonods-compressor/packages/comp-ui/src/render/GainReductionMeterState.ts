@@ -5,13 +5,16 @@ export class GainReductionMeterState {
   private currentDisplayGr = 0.0;
   private peakHoldGr = 0.0;
   private peakHoldTimeMs = 0;
-  private lastUpdateMs = performance.now();
+  private lastUpdateMs = 0;
 
   private attackTimeConstantMs = 15.0; // Fast visual grab (~15ms)
   private releaseDecayRateDbPerSec = 40.0; // 40 dB/s decay
   private peakHoldDurationMs = 800.0; // 800ms peak hold
 
   public update(rawGrDb: number, nowMs: number = performance.now()): { currentGr: number; peakGr: number } {
+    if (this.lastUpdateMs === 0) {
+      this.lastUpdateMs = nowMs;
+    }
     const dt = Math.max(0.001, (nowMs - this.lastUpdateMs) / 1000.0);
     this.lastUpdateMs = nowMs;
 

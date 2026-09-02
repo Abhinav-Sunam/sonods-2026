@@ -1,0 +1,20 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@sonods/comp-ui': path.resolve(__dirname, '../../packages/comp-ui/src/index.ts'),
+      '@sonods/comp-engine': path.resolve(__dirname, '../../packages/comp-engine/src/index.ts'),
+    },
+  },
+  server: {
+    port: 3002,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+  },
+});
