@@ -388,4 +388,63 @@ mod tests {
             gr_no_hpf
         );
     }
+
+    #[test]
+    fn test_auto_makeup_gain_flattens_output_level() {
+        let sr = 48000.0;
+        let test_thresholds = [-6.0, -12.0, -18.0, -24.0];
+
+        let mut rms_drop_without_autogain = Vec::new();
+        let mut rms_drop_with_autogain = Vec::new();
+
+        for &t in &test_thresholds {
+            // Measure without autogain
+            let mut comp_no_auto = CompressorCore::new(sr);
+            comp_no_auto.set_threshold_immediate(t);
+            comp_no_auto.set_ratio_immediate(4.0);
+            comp_no_auto.param_auto_gain.set_immediate(0.0);
+            comp_no_auto.set_mix_immediate(1.0);
+
+            // Measure with autogain (100%)
+            let mut comp_with_auto = CompressorCore::new(sr);
+            comp_with_auto.set_threshold_immediate(t);
+            comp_with_auto.set_ratio_immediate(4.0);
+            comp_with_auto.param_auto_gain.set_immediate(1.0);
+            comp_with_auto.set_mix_immediate(1.0);
+
+            let mut sum_sq_no = 0.0;
+            let mut sum_sq_with = 0.0;
+            let num_samples = 2400;
+
+            for i in 0..num_samples {
+                let time = i as f64 / sr;
+                let s = 0.7 * (2.0 * std::f64::consts::PI * 440.0 * time).sin();
+                let (out_no, _) = comp_no_auto.process_sample(s, s);
+                let (out_with, _) = comp_with_auto.process_sample(s, s);
+
+                // Sample second half (steady state)
+                if i >= 1200 {
+                    sum_sq_no += out_no * out_no;
+                    sum_sq_with += out_with * out_with;
+                }
+            }
+
+            let rms_no = (sum_sq_no / 1200.0).sqrt();
+            let rms_with = (sum_sq_with / 1200.0).sqrt();
+
+            rms_drop_without_autogain.push(rms_no);
+            rms_drop_with_autogain.push(rms_with);
+        }
+
+        // Calculate variance / spread of RMS levels across threshold sweeps
+        let spread_no = rms_drop_without_autogain.first().unwrap() - rms_drop_without_autogain.last().unwrap();
+        let spread_with = (rms_drop_with_autogain.first().unwrap() - rms_drop_with_autogain.last().unwrap()).abs();
+
+        assert!(
+            spread_with < spread_no,
+            "Auto gain must keep output level flatter than without auto gain (with={}, without={})",
+            spread_with,
+            spread_no
+        );
+    }
 }
