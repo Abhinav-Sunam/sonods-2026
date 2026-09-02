@@ -90,7 +90,9 @@ export const App: React.FC = () => {
       if (!stateBRef.current) {
         stateBRef.current = JSON.parse(JSON.stringify(stateARef.current));
       }
-      node.setState(stateBRef.current);
+      if (stateBRef.current) {
+        node.setState(stateBRef.current);
+      }
       setAbState('B');
     } else {
       stateBRef.current = node.getState();
