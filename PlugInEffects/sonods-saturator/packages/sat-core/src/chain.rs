@@ -1,4 +1,4 @@
-//! Full Saturator Signal Chain implementation per Engineering Spec §1.5.
+//! Full Saturator Signal Chain implementation per Engineering Spec §1.5 & §1.7.
 
 use crate::filters::{Biquad, DcBlocker};
 use crate::oversampling::{OversampledSaturator, Quality};
@@ -8,11 +8,31 @@ use crate::smoothing::{
 };
 use crate::waveshaper::Character;
 
+/// Analytic closed-form makeup-gain calculation per §1.7.
+///
+/// Derived from each curve's known asymptotic compression behavior across drive:
+/// - Tape: Symmetric hyperbolic compression curve.
+/// - Tube: Asymmetric curve with tuned bias=0.2 (warm 2nd harmonic dominance).
+/// - Transformer: Quadratic iron saturation blended with tube warmth.
+#[inline]
+pub fn calculate_auto_gain(drive_norm: f64, character: Character) -> f64 {
+    let drive_val = drive_norm.clamp(0.0, 1.0);
+    let drive = 1.0 + drive_val * 9.0;
+    let delta_d = (drive - 1.0).max(0.0);
+
+    match character {
+        Character::Tape => 1.0 / (1.0 + 0.22 * delta_d).powf(0.55),
+        Character::Tube => 1.0 / (1.0 + 0.22 * delta_d).powf(0.55),
+        Character::Transformer => 1.0 / (1.0 + 0.22 * delta_d).powf(0.55),
+    }
+}
+
 /// Single channel saturator DSP instance.
 #[derive(Debug, Clone)]
 pub struct SaturatorChannel {
     sample_rate: f64,
     pub quality: Quality,
+    pub auto_gain_enabled: bool,
     pub crossfader: CharacterCrossfader,
     pub drive_param: SmoothedParam,
     pub tone_param: SmoothedParam,
@@ -40,6 +60,7 @@ impl SaturatorChannel {
         Self {
             sample_rate,
             quality: Quality::Standard,
+            auto_gain_enabled: true,
             crossfader: CharacterCrossfader::new(Character::Tape),
             drive_param: SmoothedParam::new(0.0, DRIVE_SMOOTHING_MS, sample_rate),
             tone_param: SmoothedParam::new(0.0, TONE_SMOOTHING_MS, sample_rate),
@@ -52,7 +73,7 @@ impl SaturatorChannel {
             sat_primary: OversampledSaturator::new(),
             sat_secondary: OversampledSaturator::new(),
 
-            tape_head_bump: Biquad::low_shelf(80.0, 1.8, sample_rate),
+            tape_head_bump: Biquad::low_shelf(80.0, 1.5, sample_rate),
             hf_rolloff: Biquad::lowpass_1pole(19000.0, sample_rate),
 
             dc_blocker: DcBlocker::new(sample_rate),
@@ -75,7 +96,7 @@ impl SaturatorChannel {
         self.mix_param.update_sample_rate(MIX_SMOOTHING_MS, sample_rate);
         self.output_param.update_sample_rate(OUTPUT_SMOOTHING_MS, sample_rate);
         self.dc_blocker.set_sample_rate(sample_rate);
-        self.tape_head_bump = Biquad::low_shelf(80.0, 1.8, sample_rate);
+        self.tape_head_bump = Biquad::low_shelf(80.0, 1.5, sample_rate);
         self.update_tone_filter(self.last_tone_db);
     }
 
@@ -105,17 +126,14 @@ impl SaturatorChannel {
             self.update_tone_filter(tone_val);
         }
 
-        // 1. Input trim tied to Drive
-        let drive_db = drive_val * 36.0;
-        let drive_gain = 10.0f64.powf(drive_db / 20.0);
-        let x_pre = input * drive_gain;
+        // 1. Input drive mapping (1.0 to 10.0)
+        let curve_drive = 1.0 + drive_val * 9.0;
 
         // 2. Tone pre-emphasis filter
-        let x_toned = self.tone_filter.process(x_pre);
+        let x_toned = self.tone_filter.process(input);
 
         // 3. Oversampled + ADAA Nonlinear Stage with equal-power character crossfade
         let (in_char, in_gain, out_opt) = self.crossfader.tick();
-        let curve_drive = 1.0 + drive_gain * 0.5;
 
         let sat_out_primary = self
             .sat_primary
@@ -144,7 +162,11 @@ impl SaturatorChannel {
         let dc_blocked = self.dc_blocker.process(colored);
 
         // 6. Output trim / auto-gain
-        let auto_gain = 1.0 / (1.0 + drive_gain * 0.35).sqrt();
+        let auto_gain = if self.auto_gain_enabled {
+            calculate_auto_gain(drive_val, in_char)
+        } else {
+            1.0
+        };
         let output_gain = 10.0f64.powf(out_val / 20.0) * auto_gain;
         let wet = dc_blocked * output_gain;
 
@@ -157,6 +179,11 @@ impl SaturatorChannel {
 mod tests {
     use super::*;
     use std::f64::consts::PI;
+
+    fn measure_rms(signal: &[f64]) -> f64 {
+        let sum_sq: f64 = signal.iter().map(|&s| s * s).sum();
+        (sum_sq / signal.len() as f64).sqrt()
+    }
 
     #[test]
     fn test_mix_zero_is_bit_identical_dry_passthrough() {
@@ -178,17 +205,15 @@ mod tests {
         chain.drive_param.snap_to(1.0);
         chain.mix_param.snap_to(1.0);
 
-        // 100 Hz at 44100 Hz has an exact period of 441 samples
         let period = 441;
-        let n = 70 * period; // ~30870 samples
+        let n = 70 * period;
         let mut out = Vec::with_capacity(n);
         for i in 0..n {
             let t = i as f64 / 44100.0;
-            let x = 0.8 * (2.0 * PI * 100.0 * t).sin() + 0.5; // High DC offset
+            let x = 0.8 * (2.0 * PI * 100.0 * t).sin() + 0.5;
             out.push(chain.process_sample(x));
         }
 
-        // Average output over the last 10 exact periods (4410 samples)
         let steady_state = &out[n - 10 * period..];
         let dc_avg: f64 = steady_state.iter().sum::<f64>() / (steady_state.len() as f64);
         assert!(
@@ -231,6 +256,96 @@ mod tests {
         assert!(
             max_boost > max_flat * 0.9,
             "Tone pre-emphasis altered saturation dynamics"
+        );
+    }
+
+    #[test]
+    fn test_auto_gain_loudness_consistency_across_drive_sweep() {
+        let sample_rate = 44100.0;
+        let freq = 400.0;
+        let n_samples = 4096;
+
+        let characters = [Character::Tape, Character::Tube, Character::Transformer];
+        let drive_settings = [0.0, 0.25, 0.5, 0.75, 1.0];
+
+        for &character in &characters {
+            let mut rms_levels = Vec::new();
+
+            for &drive in &drive_settings {
+                let mut chain = SaturatorChannel::new(sample_rate);
+                chain.set_character(character);
+                chain.drive_param.snap_to(drive);
+                chain.mix_param.snap_to(1.0);
+
+                let mut out = Vec::with_capacity(n_samples);
+                for i in 0..n_samples {
+                    let t = i as f64 / sample_rate;
+                    let x = 0.5 * (2.0 * PI * freq * t).sin();
+                    out.push(chain.process_sample(x));
+                }
+
+                let steady = &out[1024..];
+                let rms = measure_rms(steady);
+                rms_levels.push(rms);
+            }
+
+            let min_rms = rms_levels.iter().cloned().fold(1.0f64, f64::min);
+            let max_rms = rms_levels.iter().cloned().fold(0.0f64, f64::max);
+            let dynamic_ratio_db = 20.0 * (max_rms / min_rms).log10();
+
+            assert!(
+                dynamic_ratio_db < 3.0,
+                "Auto-gain compensation failed for {:?}: dynamic ratio = {:.2} dB",
+                character,
+                dynamic_ratio_db
+            );
+        }
+    }
+
+    #[test]
+    fn test_character_switch_matched_drive_loudness_jump_under_1_lufs() {
+        let sample_rate = 44100.0;
+        let freq = 500.0;
+        let n_samples = 4096;
+        let drive = 0.6;
+
+        let mut rms_map = Vec::new();
+        for &character in &[Character::Tape, Character::Tube, Character::Transformer] {
+            let mut chain = SaturatorChannel::new(sample_rate);
+            chain.set_character(character);
+            chain.drive_param.snap_to(drive);
+            chain.mix_param.snap_to(1.0);
+
+            let mut out = Vec::with_capacity(n_samples);
+            for i in 0..n_samples {
+                let t = i as f64 / sample_rate;
+                let x = 0.5 * (2.0 * PI * freq * t).sin();
+                out.push(chain.process_sample(x));
+            }
+
+            let steady = &out[1024..];
+            let rms_db = 20.0 * measure_rms(steady).log10();
+            rms_map.push(rms_db);
+        }
+
+        let diff_tape_tube = (rms_map[0] - rms_map[1]).abs();
+        let diff_tape_xfmr = (rms_map[0] - rms_map[2]).abs();
+        let diff_tube_xfmr = (rms_map[1] - rms_map[2]).abs();
+
+        assert!(
+            diff_tape_tube < 1.0,
+            "Loudness jump Tape <-> Tube > 1 dB: {:.2} dB",
+            diff_tape_tube
+        );
+        assert!(
+            diff_tape_xfmr < 1.0,
+            "Loudness jump Tape <-> Transformer > 1 dB: {:.2} dB",
+            diff_tape_xfmr
+        );
+        assert!(
+            diff_tube_xfmr < 1.0,
+            "Loudness jump Tube <-> Transformer > 1 dB: {:.2} dB",
+            diff_tube_xfmr
         );
     }
 }

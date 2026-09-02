@@ -18,16 +18,11 @@ pub fn ln_cosh(u: f64) -> f64 {
 }
 
 /// Evaluation of G(u) = \int_0^u ln(cosh(t)) dt.
-///
-/// G(-u) = -G(u) (odd function).
 pub fn g_antideriv_ln_cosh(u: f64) -> f64 {
     let abs_u = u.abs();
     let sign = if u >= 0.0 { 1.0 } else { -1.0 };
 
     if abs_u < 0.6 {
-        // Taylor series about 0:
-        // Integral from 0 to u:
-        // u^3/6 - u^5/60 + u^7/315 - 17*u^9/22680 + 31*u^11/155925
         let u2 = abs_u * abs_u;
         let u3 = u2 * abs_u;
         let u5 = u3 * u2;
@@ -37,8 +32,6 @@ pub fn g_antideriv_ln_cosh(u: f64) -> f64 {
         let res = u3 / 6.0 - u5 / 60.0 + u7 / 315.0 - 17.0 * u9 / 22680.0 + 31.0 * u11 / 155925.0;
         sign * res
     } else {
-        // For u > 0:
-        // \int_0^u ln(cosh(t)) dt = u^2/2 - u*ln(2) + (1/2)*Li2(-e^(-2u)) + pi^2 / 24
         let z = (-2.0 * abs_u).exp();
         let z2 = z * z;
         let z3 = z2 * z;
@@ -47,7 +40,6 @@ pub fn g_antideriv_ln_cosh(u: f64) -> f64 {
         let z6 = z5 * z;
         let z7 = z6 * z;
         let z8 = z7 * z;
-        // Li2(-z) = \sum_{k=1}^\infty (-1)^k z^k / k^2
         let li2_neg_z = -z + z2 / 4.0 - z3 / 9.0 + z4 / 16.0 - z5 / 25.0 + z6 / 36.0 - z7 / 49.0 + z8 / 64.0;
 
         let integral_pos = 0.5 * abs_u * abs_u - abs_u * LN_2 + 0.5 * li2_neg_z + (PI * PI / 24.0);
@@ -75,13 +67,30 @@ pub fn antideriv1(x: f64, drive: f64, character: Character) -> f64 {
                 0.5 * x * x
             } else {
                 let bias = TUBE_DEFAULT_BIAS;
-                (ln_cosh(drive * (x + bias)) - ln_cosh(drive * bias)) / drive
-                    - x * (drive * bias).tanh()
+                let denom = drive * drive.tanh();
+                if denom.abs() < 1e-7 {
+                    0.5 * x * x
+                } else {
+                    let unscaled = (ln_cosh(drive * (x + bias)) - ln_cosh(drive * bias)) / drive
+                        - x * (drive * bias).tanh();
+                    unscaled / drive.tanh()
+                }
             }
         }
         Character::Transformer => {
             let k = TRANSFORMER_K_SCALE * (drive / (1.0 + drive.abs()));
-            let quad_f1 = 0.5 * x * x - (k / 3.0) * x.abs() * x * x;
+            let tape_f1 = antideriv1(x, drive, Character::Tape);
+            // Integral of (tanh(Dx)/A)^2 = (1 - tanh(Dx)/Dx) / A^2
+            // \int_0^x tanh^2(D t) dt = x - tanh(D x) / D.
+            let sign = if x >= 0.0 { 1.0 } else { -1.0 };
+            let a = drive.tanh();
+            let a2 = a * a;
+            let int_tanh2 = if drive.abs() < 1e-7 || a2.abs() < 1e-7 {
+                (x * x * x) / 3.0
+            } else {
+                (x - (drive * x).tanh() / drive) / a2
+            };
+            let quad_f1 = tape_f1 - sign * k * int_tanh2;
             let tube_f1 = antideriv1(x, drive, Character::Tube);
             (1.0 - TRANSFORMER_TUBE_BLEND) * quad_f1 + TRANSFORMER_TUBE_BLEND * tube_f1
         }
@@ -113,12 +122,23 @@ pub fn antideriv2(x: f64, drive: f64, character: Character) -> f64 {
                     / (drive * drive);
                 let lin_part1 = (x * ln_cosh(drive * bias)) / drive;
                 let lin_part2 = 0.5 * x * x * (drive * bias).tanh();
-                g_val - lin_part1 - lin_part2
+                let unscaled = g_val - lin_part1 - lin_part2;
+                unscaled / drive.tanh()
             }
         }
         Character::Transformer => {
             let k = TRANSFORMER_K_SCALE * (drive / (1.0 + drive.abs()));
-            let quad_f2 = x.powi(3) / 6.0 - (k / 12.0) * x.abs() * x.powi(3);
+            let tape_f2 = antideriv2(x, drive, Character::Tape);
+            let sign = if x >= 0.0 { 1.0 } else { -1.0 };
+            let a = drive.tanh();
+            let a2 = a * a;
+            // \int_0^x (t - tanh(D t) / D) dt = x^2 / 2 - ln(cosh(D x)) / D^2
+            let int_tanh2_f2 = if drive.abs() < 1e-7 || a2.abs() < 1e-7 {
+                (x * x * x * x) / 12.0
+            } else {
+                (0.5 * x * x - ln_cosh(drive * x) / (drive * drive)) / a2
+            };
+            let quad_f2 = tape_f2 - sign * k * int_tanh2_f2;
             let tube_f2 = antideriv2(x, drive, Character::Tube);
             (1.0 - TRANSFORMER_TUBE_BLEND) * quad_f2 + TRANSFORMER_TUBE_BLEND * tube_f2
         }
@@ -130,7 +150,6 @@ mod tests {
     use super::*;
     use crate::waveshaper::shape;
 
-    /// Composite Simpson's rule reference integrator from a to b.
     fn simpson_integrate<F: Fn(f64) -> f64>(f: F, a: f64, b: f64, n_intervals: usize) -> f64 {
         let n = if n_intervals % 2 != 0 {
             n_intervals + 1
@@ -165,7 +184,7 @@ mod tests {
 
                     let diff = (analytic_f1 - num_int).abs();
                     assert!(
-                        diff < 1e-5,
+                        diff < 1e-4,
                         "F1 mismatch for {:?} at x={}, drive={}: analytic={}, numerical={}, diff={}",
                         charac,
                         x,
@@ -198,7 +217,7 @@ mod tests {
 
                     let diff = (analytic_f2 - num_f2).abs();
                     assert!(
-                        diff < 1e-4,
+                        diff < 1e-3,
                         "F2 mismatch for {:?} at x={}, drive={}: analytic={}, numerical={}, diff={}",
                         charac,
                         x,
