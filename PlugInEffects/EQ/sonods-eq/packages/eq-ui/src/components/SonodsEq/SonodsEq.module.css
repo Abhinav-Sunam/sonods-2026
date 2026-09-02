@@ -56,7 +56,8 @@
   gap: 6px;
   box-sizing: border-box;
   border-left: 2px solid #D4D4D8;
-  overflow: hidden;
+  position: relative;
+  z-index: 50;
 }
 
 .bottomBar {
