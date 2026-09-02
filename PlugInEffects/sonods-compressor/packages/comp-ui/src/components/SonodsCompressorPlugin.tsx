@@ -62,9 +62,10 @@ export const SonodsCompressorPlugin: React.FC<SonodsCompressorPluginProps> = ({ 
           justifyContent: 'space-between',
           borderBottom: '1px solid #E4E4E7',
           paddingBottom: '12px',
+          position: 'relative',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
           <div
             style={{
               width: '10px',
@@ -78,9 +79,12 @@ export const SonodsCompressorPlugin: React.FC<SonodsCompressorPluginProps> = ({ 
           </span>
         </div>
 
-        {/* Character Topology Pills (VCA / Opto / FET) */}
+        {/* Character Topology Pills (VCA / Opto / FET) - Centered */}
         <div
           style={{
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
             display: 'flex',
             background: '#F4F4F5',
             padding: '3px',
@@ -114,17 +118,22 @@ export const SonodsCompressorPlugin: React.FC<SonodsCompressorPluginProps> = ({ 
           })}
         </div>
 
-        {/* Gain reduction numeric badge */}
+        {/* Gain reduction numeric badge with fixed width and tabular numbers */}
         <div
           style={{
+            minWidth: '94px',
+            width: '94px',
+            boxSizing: 'border-box',
+            textAlign: 'center',
             fontSize: '11px',
-            fontFamily: 'ui-monospace, monospace',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            fontVariantNumeric: 'tabular-nums',
             fontWeight: 700,
             color: gainReductionDb > 0.5 ? '#EF4444' : '#71717A',
             padding: '3px 8px',
             borderRadius: '6px',
             background: gainReductionDb > 0.5 ? 'rgba(239, 68, 68, 0.1)' : '#F4F4F5',
-            transition: 'all 0.1s ease',
+            transition: 'background 0.1s ease, color 0.1s ease',
           }}
         >
           GR: -{gainReductionDb.toFixed(1)} dB

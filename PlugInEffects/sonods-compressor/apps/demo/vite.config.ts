@@ -10,6 +10,9 @@ export default defineConfig({
       '@sonods/comp-engine': path.resolve(__dirname, '../../packages/comp-engine/src/index.ts'),
     },
   },
+  optimizeDeps: {
+    exclude: ['@sonods/comp-ui', '@sonods/comp-engine'],
+  },
   server: {
     port: 3002,
     headers: {
