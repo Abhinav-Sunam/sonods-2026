@@ -21,18 +21,23 @@ export class CurveRenderer {
   private ctx: CanvasRenderingContext2D;
   constructor(ctx: CanvasRenderingContext2D) { this.ctx = ctx; }
 
+  /** Draw white background + grid. Call BEFORE the analyser pass. */
+  public renderBackground(width: number, height: number, dpr: number): void {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, width, height);
+    this.drawGrid(ctx, width, height);
+    ctx.restore();
+  }
+
   public render(options: RenderOptions): void {
     const { width, height, dpr, curvePoints, bands, selectedBandIndex, hoveredBandIndex, ghostCurves = [] } = options;
     const ctx = this.ctx;
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, width, height);
-
-    // White canvas background
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, width, height);
-
-    this.drawGrid(ctx, width, height);
 
     // Ghost curves
     if (selectedBandIndex !== null) {

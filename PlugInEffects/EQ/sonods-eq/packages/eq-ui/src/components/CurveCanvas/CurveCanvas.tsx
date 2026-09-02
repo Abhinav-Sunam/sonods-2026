@@ -78,7 +78,10 @@ export const CurveCanvas: React.FC<CurveCanvasProps> = ({
           canvas.height = height * dpr;
         }
 
-        // 1. Spectrum Analyzer render pass
+        // 0. Background + Grid (drawn first, under everything)
+        curveRenderer.renderBackground(width, height, dpr);
+
+        // 1. Spectrum Analyzer render pass (on top of grid, under curve)
         let preData: Float32Array | null = null;
         let postData: Float32Array | null = null;
         if (node) {
