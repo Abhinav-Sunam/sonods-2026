@@ -49,11 +49,7 @@ impl RmsDetector {
     #[inline]
     pub fn process_sample(&mut self, sample: f64) -> f64 {
         let sq = sample * sample;
-        self.mean_sq = self.alpha * self.mean_sq + (1.0 - self.alpha) * sq;
-        // Denormal protection
-        if self.mean_sq < 1e-18 {
-            self.mean_sq = 0.0;
-        }
+        self.mean_sq = crate::denormals::flush_denormal(self.alpha * self.mean_sq + (1.0 - self.alpha) * sq);
         self.mean_sq.sqrt()
     }
 
