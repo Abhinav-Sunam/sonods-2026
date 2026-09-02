@@ -323,7 +323,7 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
               letterSpacing: '0.04em',
             }}
           >
-            Stage {state.drive < 0.25 ? 1 : state.drive < 0.55 ? 2 : state.drive < 0.85 ? 3 : 4}
+            {state.character === 'tape' ? 'Tape Hysteresis' : state.character === 'tube' ? 'Triode Tube' : 'Transformer Core'}
           </span>
           <span style={{ fontSize: '10px', color: '#A1A1AA' }}>•</span>
           <span
