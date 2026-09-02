@@ -1,6 +1,15 @@
-//! Biquad and DC-blocking filters for tone shaping and coloration.
+//! Biquad and DC-blocking filters for tone shaping and coloration with denormal protection.
 
 use std::f64::consts::PI;
+
+#[inline(always)]
+pub fn flush_denormal(val: f64) -> f64 {
+    if val.abs() < 1e-15 {
+        0.0
+    } else {
+        val
+    }
+}
 
 /// Direct Form II Transposed Biquad Filter for numerical safety.
 #[derive(Debug, Clone)]
@@ -10,8 +19,8 @@ pub struct Biquad {
     b2: f64,
     a1: f64,
     a2: f64,
-    s1: f64,
-    s2: f64,
+    pub s1: f64,
+    pub s2: f64,
 }
 
 impl Default for Biquad {
@@ -122,8 +131,8 @@ impl Biquad {
     #[inline(always)]
     pub fn process(&mut self, input: f64) -> f64 {
         let out = self.b0 * input + self.s1;
-        self.s1 = self.b1 * input - self.a1 * out + self.s2;
-        self.s2 = self.b2 * input - self.a2 * out;
+        self.s1 = flush_denormal(self.b1 * input - self.a1 * out + self.s2);
+        self.s2 = flush_denormal(self.b2 * input - self.a2 * out);
         out
     }
 }
@@ -132,8 +141,8 @@ impl Biquad {
 #[derive(Debug, Clone)]
 pub struct DcBlocker {
     r: f64,
-    x1: f64,
-    y1: f64,
+    pub x1: f64,
+    pub y1: f64,
 }
 
 impl Default for DcBlocker {
@@ -165,8 +174,8 @@ impl DcBlocker {
 
     #[inline(always)]
     pub fn process(&mut self, x: f64) -> f64 {
-        let y = x - self.x1 + self.r * self.y1;
-        self.x1 = x;
+        let y = flush_denormal(x - self.x1 + self.r * self.y1);
+        self.x1 = flush_denormal(x);
         self.y1 = y;
         y
     }

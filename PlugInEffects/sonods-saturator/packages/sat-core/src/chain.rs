@@ -9,11 +9,6 @@ use crate::smoothing::{
 use crate::waveshaper::Character;
 
 /// Analytic closed-form makeup-gain calculation per §1.7.
-///
-/// Derived from each curve's known asymptotic compression behavior across drive:
-/// - Tape: Symmetric hyperbolic compression curve.
-/// - Tube: Asymmetric curve with tuned bias=0.2 (warm 2nd harmonic dominance).
-/// - Transformer: Quadratic iron saturation blended with tube warmth.
 #[inline]
 pub fn calculate_auto_gain(drive_norm: f64, character: Character) -> f64 {
     let drive_val = drive_norm.clamp(0.0, 1.0);
@@ -40,19 +35,19 @@ pub struct SaturatorChannel {
     pub output_param: SmoothedParam,
 
     // Stage 2: Tone pre-emphasis filter
-    tone_filter: Biquad,
+    pub tone_filter: Biquad,
     last_tone_db: f64,
 
     // Stage 3: Nonlinear saturators
-    sat_primary: OversampledSaturator,
-    sat_secondary: OversampledSaturator,
+    pub sat_primary: OversampledSaturator,
+    pub sat_secondary: OversampledSaturator,
 
     // Stage 4: Character-specific post coloration
-    tape_head_bump: Biquad,
-    hf_rolloff: Biquad,
+    pub tape_head_bump: Biquad,
+    pub hf_rolloff: Biquad,
 
     // Stage 5: DC blocker
-    dc_blocker: DcBlocker,
+    pub dc_blocker: DcBlocker,
 }
 
 impl SaturatorChannel {
@@ -108,6 +103,13 @@ impl SaturatorChannel {
     fn update_tone_filter(&mut self, tone_db: f64) {
         self.tone_filter = Biquad::high_shelf(3200.0, tone_db, self.sample_rate);
         self.last_tone_db = tone_db;
+    }
+
+    /// Process a block of samples in place.
+    pub fn process_block(&mut self, buffer: &mut [f64]) {
+        for sample in buffer.iter_mut() {
+            *sample = self.process_sample(*sample);
+        }
     }
 
     /// Process a single audio sample through the full signal chain per §1.5 ordering.
@@ -183,6 +185,36 @@ mod tests {
     fn measure_rms(signal: &[f64]) -> f64 {
         let sum_sq: f64 = signal.iter().map(|&s| s * s).sum();
         (sum_sq / signal.len() as f64).sqrt()
+    }
+
+    #[test]
+    fn test_denormal_flushing_silence_then_transient() {
+        let sample_rate = 48000.0;
+        let mut chain = SaturatorChannel::new(sample_rate);
+        chain.drive_param.snap_to(0.8);
+        chain.tone_param.snap_to(6.0);
+        chain.mix_param.snap_to(1.0);
+
+        // Feed 1 second of silence
+        let mut silence = vec![0.0f64; 48000];
+        chain.process_block(&mut silence);
+
+        // Check internal states have no denormals
+        assert!(!chain.tone_filter.s1.is_subnormal());
+        assert!(!chain.tone_filter.s2.is_subnormal());
+        assert!(!chain.dc_blocker.x1.is_subnormal());
+        assert!(!chain.dc_blocker.y1.is_subnormal());
+        assert!(!chain.sat_primary.adaa.x1.is_subnormal());
+        assert!(!chain.sat_primary.adaa.x2.is_subnormal());
+
+        // Feed transient impulse
+        let mut impulse = vec![0.0f64; 512];
+        impulse[0] = 1.0;
+        chain.process_block(&mut impulse);
+
+        assert!(impulse[0].is_finite());
+        assert!(!impulse[0].is_nan());
+        assert!(impulse[0].abs() > 0.0);
     }
 
     #[test]

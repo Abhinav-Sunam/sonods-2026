@@ -1,6 +1,7 @@
 //! Polyphase FIR oversampler (2x and 4x factors) combined with 2nd-order ADAA.
 
 use crate::adaa::AdaaState;
+use crate::filters::flush_denormal;
 use crate::waveshaper::Character;
 use std::f64::consts::PI;
 
@@ -14,7 +15,6 @@ const TAPS_LEN: usize = 43; // 43 taps halfband FIR (M = 21)
 const HALF_M: usize = 21;
 const BUFFER_LEN: usize = 64;
 
-/// Modified Bessel function I0(x) for Kaiser window.
 fn bessel_i0(x: f64) -> f64 {
     let mut sum = 1.0;
     let mut term = 1.0;
@@ -29,7 +29,6 @@ fn bessel_i0(x: f64) -> f64 {
     sum
 }
 
-/// Compute 43-tap Kaiser halfband FIR filter taps (Beta = 9.0, > 85dB stopband rejection).
 fn compute_halfband_taps() -> [f64; TAPS_LEN] {
     let mut taps = [0.0; TAPS_LEN];
     let beta = 9.0;
@@ -67,9 +66,9 @@ fn compute_halfband_taps() -> [f64; TAPS_LEN] {
 #[derive(Debug, Clone)]
 pub struct HalfBand2x {
     taps: [f64; TAPS_LEN],
-    up_buf: [f64; BUFFER_LEN],
+    pub up_buf: [f64; BUFFER_LEN],
     up_pos: usize,
-    down_buf: [f64; BUFFER_LEN * 2],
+    pub down_buf: [f64; BUFFER_LEN * 2],
     down_pos: usize,
 }
 
@@ -97,7 +96,6 @@ impl HalfBand2x {
         self.down_pos = 0;
     }
 
-    /// Latency of 2x halfband filter in 1x samples: HALF_M / 2 = 10 samples.
     pub fn latency_samples_1x(&self) -> usize {
         HALF_M / 2
     }
@@ -105,13 +103,11 @@ impl HalfBand2x {
     /// 2x Upsample 1 input sample into 2 oversampled samples.
     #[inline]
     pub fn upsample_2x(&mut self, input: f64) -> (f64, f64) {
-        self.up_buf[self.up_pos] = input;
+        self.up_buf[self.up_pos] = flush_denormal(input);
 
-        // Branch 1 is the center tap delay (at index 21, k = 10)
         let delay_idx = (self.up_pos + BUFFER_LEN - (HALF_M / 2)) % BUFFER_LEN;
         let s1 = self.up_buf[delay_idx];
 
-        // Branch 0 evaluates the even taps: h[0], h[2], h[4], ..., h[42]
         let mut s0 = 0.0;
         for i in (0..TAPS_LEN).step_by(2) {
             let k = i / 2;
@@ -120,15 +116,15 @@ impl HalfBand2x {
         }
 
         self.up_pos = (self.up_pos + 1) % BUFFER_LEN;
-        (s0, s1)
+        (flush_denormal(s0), flush_denormal(s1))
     }
 
     /// 2x Downsample 2 oversampled samples into 1 output sample.
     #[inline]
     pub fn downsample_2x(&mut self, s0: f64, s1: f64) -> f64 {
-        self.down_buf[self.down_pos] = s0;
+        self.down_buf[self.down_pos] = flush_denormal(s0);
         self.down_pos = (self.down_pos + 1) % (BUFFER_LEN * 2);
-        self.down_buf[self.down_pos] = s1;
+        self.down_buf[self.down_pos] = flush_denormal(s1);
 
         let mut out = 0.0;
         let buf_len = BUFFER_LEN * 2;
@@ -138,16 +134,16 @@ impl HalfBand2x {
         }
 
         self.down_pos = (self.down_pos + 1) % buf_len;
-        out
+        flush_denormal(out)
     }
 }
 
 /// Unified Saturator Stage with ADAA2 and switchable 2x/4x Oversampling.
 #[derive(Debug, Clone)]
 pub struct OversampledSaturator {
-    stage1: HalfBand2x,
-    stage2: HalfBand2x,
-    adaa: AdaaState,
+    pub stage1: HalfBand2x,
+    pub stage2: HalfBand2x,
+    pub adaa: AdaaState,
 }
 
 impl Default for OversampledSaturator {
@@ -171,7 +167,6 @@ impl OversampledSaturator {
         self.adaa.reset();
     }
 
-    /// Latency in samples at 1x base sample rate.
     pub fn latency_samples(&self, quality: Quality) -> usize {
         match quality {
             Quality::Standard => self.stage1.latency_samples_1x() * 2,
@@ -179,7 +174,6 @@ impl OversampledSaturator {
         }
     }
 
-    /// Process a single 1x sample through oversampled ADAA2 nonlinear saturation.
     #[inline]
     pub fn process_sample(
         &mut self,
@@ -190,14 +184,12 @@ impl OversampledSaturator {
     ) -> f64 {
         match quality {
             Quality::Standard => {
-                // 2x oversampling
                 let (u0, u1) = self.stage1.upsample_2x(input);
                 let y0 = self.adaa.process_sample(u0, drive, character);
                 let y1 = self.adaa.process_sample(u1, drive, character);
                 self.stage1.downsample_2x(y0, y1)
             }
             Quality::High => {
-                // 4x oversampling (cascade stage1 -> stage2)
                 let (u0, u1) = self.stage1.upsample_2x(input);
                 let (u00, u01) = self.stage2.upsample_2x(u0);
                 let (u10, u11) = self.stage2.upsample_2x(u1);
@@ -219,7 +211,6 @@ impl OversampledSaturator {
 mod tests {
     use super::*;
 
-    /// FFT helper using Discrete Fourier Transform with Blackman-Harris window
     fn compute_fft_db(signal: &[f64]) -> Vec<f64> {
         let n = signal.len();
         let mut dbs = vec![-140.0; n / 2];
@@ -257,15 +248,11 @@ mod tests {
 
         let steady_out = &out[100..];
         let max_amp = steady_out.iter().map(|s| s.abs()).fold(0.0f64, f64::max);
-        assert!(max_amp < 1.5, "Filter passband is stable");
+        assert!(max_amp < 1.5);
     }
 
     #[test]
     fn test_two_tone_alias_suppression_50db() {
-        // Acceptance Check: Two-tone test (f1=7000Hz, f2=8000Hz at fs=44100Hz) at max drive (drive=5.0)
-        // Folded alias components: 3*f1 = 21000, 2*f1+f2 = 22000, f1+2*f2 = 23000 (folds to 21100),
-        // 3*f2 = 24000 (folds to 20100), 4*f1 = 28000 (folds to 16100).
-        // Check in-band alias suppression at folded frequency 16.1kHz.
         let sample_rate = 44100.0;
         let f1 = 7000.0;
         let f2 = 8000.0;
@@ -284,7 +271,6 @@ mod tests {
                     output.push(y);
                 }
 
-                // Analyze spectrum on steady state
                 let steady_signal = &output[512..];
                 let spectrum_db = compute_fft_db(steady_signal);
 
@@ -292,7 +278,6 @@ mod tests {
                 let fund_bin2 = ((f2 / (sample_rate / 2.0)) * (spectrum_db.len() as f64)).round() as usize;
                 let fund_level = spectrum_db[fund_bin1].max(spectrum_db[fund_bin2]);
 
-                // Folded alias check bin around 16.1 kHz (folded 4th order intermod 28kHz - 44.1kHz = 16.1kHz)
                 let alias_bin = ((16100.0 / (sample_rate / 2.0)) * (spectrum_db.len() as f64)).round() as usize;
                 let alias_level = spectrum_db[alias_bin - 2..=alias_bin + 2]
                     .iter()
