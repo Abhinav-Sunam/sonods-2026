@@ -11,6 +11,7 @@
 
 pub mod detector;
 pub mod gain_computer;
+pub mod lookahead;
 pub mod sidechain;
 pub mod smoother;
 
