@@ -7,16 +7,6 @@ interface SaturatorCharacterFaceProps {
   audioPeak?: number; // 0.0 to 1.0 live audio amplitude
 }
 
-// The bold, saturated rainbow colors matching the user's reference art
-const STREAM_COLORS = [
-  '#ff0044', // Hot pink-red
-  '#ff6600', // Bold orange
-  '#ffee00', // Bright yellow
-  '#00ff66', // Electric green
-  '#00ccff', // Bright cyan
-  '#ff00ff', // Hot magenta
-];
-
 export const SaturatorCharacterFace: React.FC<SaturatorCharacterFaceProps> = ({
   drive,
   character,
@@ -44,19 +34,8 @@ export const SaturatorCharacterFace: React.FC<SaturatorCharacterFaceProps> = ({
 
   // Reactive scaling with audio drive
   const bounceScale = 1.0 + audioPeak * 0.08 * (0.5 + drive * 0.5);
-
-  // The rainbow stream grows MUCH more dramatically with drive
-  const streamBaseWidth = 36;
-  const streamWidth = streamBaseWidth + stage * 12 + drive * 30;
-  const streamLength = 60 + drive * 160 + audioPeak * 40;
-  const waveAmp = stage === 4 ? 18 + audioPeak * 12 : stage === 3 ? 12 + audioPeak * 6 : stage === 2 ? 6 : 2;
-
-  // SVG dimensions — bigger canvas to accommodate the larger stream
-  const svgWidth = 200;
-  const svgHeight = 50 + 100 + streamLength; // top pad + head + stream
-  const headCx = svgWidth / 2;
-  const headCy = 58;
-  const streamTop = 95;
+  const streamLength = 40 + drive * 120 + audioPeak * 25;
+  const waveAmp = stage === 4 ? 14 + audioPeak * 8 : stage === 3 ? 8 : 4;
 
   return (
     <div
@@ -66,13 +45,13 @@ export const SaturatorCharacterFace: React.FC<SaturatorCharacterFaceProps> = ({
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
-        padding: '0',
+        padding: '8px 0',
       }}
     >
       <svg
-        width={svgWidth}
-        height={Math.min(svgHeight, 340)}
-        viewBox={`0 0 ${svgWidth} ${Math.min(svgHeight, 340)}`}
+        width="160"
+        height="220"
+        viewBox="0 0 160 220"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         style={{
@@ -82,140 +61,67 @@ export const SaturatorCharacterFace: React.FC<SaturatorCharacterFaceProps> = ({
         }}
       >
         <defs>
-          {/* Multi-stripe rainbow gradient for the stream */}
-          <linearGradient id="rainbowStreamV" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#ff0044" />
-            <stop offset="18%" stopColor="#ff6600" />
-            <stop offset="36%" stopColor="#ffee00" />
-            <stop offset="54%" stopColor="#00ff66" />
-            <stop offset="72%" stopColor="#00ccff" />
-            <stop offset="90%" stopColor="#ff00ff" />
+          <linearGradient id="rainbowFlow" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#ef4444" />
+            <stop offset="20%" stopColor="#f97316" />
+            <stop offset="40%" stopColor="#eab308" />
+            <stop offset="60%" stopColor="#22c55e" />
+            <stop offset="80%" stopColor="#06b6d4" />
             <stop offset="100%" stopColor="#8b5cf6" />
           </linearGradient>
 
-          {/* Horizontal rainbow gradient for individual stripes */}
-          <linearGradient id="rainbowStreamH" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ff0044" />
-            <stop offset="20%" stopColor="#ff6600" />
-            <stop offset="40%" stopColor="#ffee00" />
-            <stop offset="60%" stopColor="#00ff66" />
-            <stop offset="80%" stopColor="#00ccff" />
-            <stop offset="100%" stopColor="#ff00ff" />
-          </linearGradient>
-
-          <filter id="glowFilter" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="4" result="blur" />
-            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-          </filter>
-
-          <filter id="streamGlow" x="-20%" y="-5%" width="140%" height="110%">
+          <filter id="glowFilter" x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation="3" result="blur" />
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
 
-        {/* --- Cascading Rainbow Stream (BOLD — major visual element) --- */}
-        <g filter="url(#streamGlow)">
-          {/* Render individual colored stripes side-by-side for the bold rainbow look */}
-          {STREAM_COLORS.map((color, i) => {
-            const stripeWidth = streamWidth / STREAM_COLORS.length;
-            const totalWidth = streamWidth;
-            const startX = headCx - totalWidth / 2 + i * stripeWidth;
+        {/* --- Cascading Rainbow Stream --- */}
+        <g opacity={0.85 + drive * 0.15}>
+          {stage === 1 && (
+            // Calm straight rainbow beam
+            <rect
+              x="62"
+              y="95"
+              width="36"
+              height={streamLength}
+              rx="6"
+              fill="url(#rainbowFlow)"
+              opacity="0.8"
+            />
+          )}
 
-            if (stage === 1) {
-              // Stage 1: Calm straight beam with individual color stripes
-              return (
-                <rect
-                  key={i}
-                  x={startX}
-                  y={streamTop}
-                  width={stripeWidth + 0.5} // slight overlap to avoid gaps
-                  height={streamLength}
-                  fill={color}
-                  opacity={0.8}
-                  rx={i === 0 ? 3 : i === STREAM_COLORS.length - 1 ? 3 : 0}
-                />
-              );
-            }
+          {stage === 2 && (
+            // Flowing rainbow ribbon
+            <path
+              d={`M 60 95 Q 68 ${120 + waveAmp} 62 ${95 + streamLength} L 98 ${95 + streamLength} Q 92 ${120 + waveAmp} 100 95 Z`}
+              fill="url(#rainbowFlow)"
+            />
+          )}
 
-            if (stage === 2) {
-              // Stage 2: Gentle flowing curves
-              const sway = waveAmp * Math.sin((i / STREAM_COLORS.length) * Math.PI);
-              return (
-                <path
-                  key={i}
-                  d={`M ${startX} ${streamTop}
-                      Q ${startX + sway} ${streamTop + streamLength * 0.5}
-                        ${startX} ${streamTop + streamLength}
-                      L ${startX + stripeWidth} ${streamTop + streamLength}
-                      Q ${startX + stripeWidth + sway} ${streamTop + streamLength * 0.5}
-                        ${startX + stripeWidth} ${streamTop}
-                      Z`}
-                  fill={color}
-                  opacity={0.85}
-                />
-              );
-            }
+          {stage === 3 && (
+            // Radiant expanding rainbow stream
+            <path
+              d={`M 56 95 Q 48 ${130 + waveAmp} 52 ${95 + streamLength} L 108 ${95 + streamLength} Q 112 ${130 + waveAmp} 104 95 Z`}
+              fill="url(#rainbowFlow)"
+            />
+          )}
 
-            if (stage === 3) {
-              // Stage 3: Expanding radiant cascade — flares outward
-              const flare = (i - STREAM_COLORS.length / 2) * 4;
-              const endX = startX + flare;
-              return (
-                <path
-                  key={i}
-                  d={`M ${startX} ${streamTop}
-                      Q ${startX + waveAmp * (i % 2 === 0 ? 1 : -1)} ${streamTop + streamLength * 0.4}
-                        ${endX} ${streamTop + streamLength}
-                      L ${endX + stripeWidth + 2} ${streamTop + streamLength}
-                      Q ${startX + stripeWidth + waveAmp * (i % 2 === 0 ? -1 : 1)} ${streamTop + streamLength * 0.4}
-                        ${startX + stripeWidth} ${streamTop}
-                      Z`}
-                  fill={color}
-                  opacity={0.9}
-                />
-              );
-            }
-
-            // Stage 4: Ecstatic long wavy undulating waterfall!
-            const phase = (i / STREAM_COLORS.length) * Math.PI * 2;
-            const w1 = waveAmp * Math.sin(phase);
-            const w2 = waveAmp * Math.cos(phase + 1);
-            const w3 = waveAmp * Math.sin(phase + 2);
-            const flare = (i - STREAM_COLORS.length / 2) * 6;
-            const endX = startX + flare;
-
-            return (
-              <path
-                key={i}
-                d={`M ${startX} ${streamTop}
-                    C ${startX + w1} ${streamTop + streamLength * 0.2}
-                      ${startX + w2} ${streamTop + streamLength * 0.4}
-                      ${startX + w3} ${streamTop + streamLength * 0.6}
-                    C ${startX - w1} ${streamTop + streamLength * 0.8}
-                      ${endX} ${streamTop + streamLength * 0.95}
-                      ${endX} ${streamTop + streamLength}
-                    L ${endX + stripeWidth + 3} ${streamTop + streamLength}
-                    C ${endX + stripeWidth + 3} ${streamTop + streamLength * 0.95}
-                      ${startX + stripeWidth - w1} ${streamTop + streamLength * 0.8}
-                      ${startX + stripeWidth + w3} ${streamTop + streamLength * 0.6}
-                    C ${startX + stripeWidth + w2} ${streamTop + streamLength * 0.4}
-                      ${startX + stripeWidth + w1} ${streamTop + streamLength * 0.2}
-                      ${startX + stripeWidth} ${streamTop}
-                    Z`}
-                fill={color}
-                opacity={0.92}
-              />
-            );
-          })}
+          {stage === 4 && (
+            // Ecstatic long wavy waterfall cascade
+            <path
+              d={`M 54 95 Q ${42 - waveAmp} ${125} ${58 + waveAmp} ${155} Q ${44 - waveAmp} ${185} 50 ${95 + streamLength} L 110 ${95 + streamLength} Q ${116 + waveAmp} ${185} ${102 - waveAmp} ${155} Q ${118 + waveAmp} ${125} 106 95 Z`}
+              fill="url(#rainbowFlow)"
+            />
+          )}
         </g>
 
         {/* --- Cute Character Head --- */}
-        <g transform={`translate(${headCx}, ${headCy}) scale(${bounceScale}) translate(${-headCx}, ${-headCy})`}>
+        <g transform={`translate(80, 58) scale(${bounceScale}) translate(-80, -58)`}>
           {/* Outer Head Circle */}
           <circle
-            cx={headCx}
-            cy={headCy}
+            cx="80"
+            cy="58"
             r="44"
             fill="#ffffff"
             stroke="#1a1c23"
@@ -227,16 +133,16 @@ export const SaturatorCharacterFace: React.FC<SaturatorCharacterFaceProps> = ({
 
           {/* Rosy Cheeks (blush) */}
           <ellipse
-            cx={headCx - 32}
-            cy={headCy + 7}
+            cx="48"
+            cy="65"
             rx={stage >= 3 ? 9 : 7}
             ry="5"
             fill="#ff8da1"
             opacity={0.5 + drive * 0.5}
           />
           <ellipse
-            cx={headCx + 32}
-            cy={headCy + 7}
+            cx="112"
+            cy="65"
             rx={stage >= 3 ? 9 : 7}
             ry="5"
             fill="#ff8da1"
@@ -247,16 +153,16 @@ export const SaturatorCharacterFace: React.FC<SaturatorCharacterFaceProps> = ({
           {stage === 1 && (
             // Stage 1: Content happy arch eyes ^ ^
             <g stroke="#1a1c23" strokeWidth="3.5" strokeLinecap="round" fill="none">
-              <path d={`M ${headCx - 28} ${headCy - 6} Q ${headCx - 20} ${headCy - 15} ${headCx - 12} ${headCy - 6}`} />
-              <path d={`M ${headCx + 12} ${headCy - 6} Q ${headCx + 20} ${headCy - 15} ${headCx + 28} ${headCy - 6}`} />
+              <path d="M 52 52 Q 60 43 68 52" />
+              <path d="M 92 52 Q 100 43 108 52" />
             </g>
           )}
 
           {stage === 2 && (
-            // Stage 2: Blushing happy eyes ^ ^
+            // Stage 2: Blushing winking happy eyes ^ ^
             <g stroke="#1a1c23" strokeWidth="4" strokeLinecap="round" fill="none">
-              <path d={`M ${headCx - 30} ${headCy - 7} Q ${headCx - 20} ${headCy - 19} ${headCx - 10} ${headCy - 7}`} />
-              <path d={`M ${headCx + 10} ${headCy - 7} Q ${headCx + 20} ${headCy - 19} ${headCx + 30} ${headCy - 7}`} />
+              <path d="M 50 51 Q 60 39 70 51" />
+              <path d="M 90 51 Q 100 39 110 51" />
             </g>
           )}
 
@@ -265,13 +171,13 @@ export const SaturatorCharacterFace: React.FC<SaturatorCharacterFaceProps> = ({
             <g fill={charAccent.primary} stroke="#1a1c23" strokeWidth="2.5">
               {/* Left Heart Eye */}
               <path
-                d={`M ${headCx - 20} ${headCy - 6} C ${headCx - 20} ${headCy - 12} ${headCx - 26} ${headCy - 16} ${headCx - 31} ${headCy - 13} C ${headCx - 36} ${headCy - 10} ${headCx - 35} ${headCy - 4} ${headCx - 31} ${headCy + 1} L ${headCx - 20} ${headCy + 10} L ${headCx - 9} ${headCy + 1} C ${headCx - 5} ${headCy - 4} ${headCx - 4} ${headCy - 10} ${headCx - 9} ${headCy - 13} C ${headCx - 14} ${headCy - 16} ${headCx - 20} ${headCy - 12} ${headCx - 20} ${headCy - 6} Z`}
-                transform={`translate(${headCx - 20}, ${headCy - 6}) scale(0.6) translate(${-(headCx - 20)}, ${-(headCy - 6)})`}
+                d="M 60 52 C 60 46 54 42 49 45 C 44 48 45 54 49 59 L 60 68 L 71 59 C 75 54 76 48 71 45 C 66 42 60 46 60 52 Z"
+                transform="translate(60, 52) scale(0.65) translate(-60, -52)"
               />
               {/* Right Heart Eye */}
               <path
-                d={`M ${headCx + 20} ${headCy - 6} C ${headCx + 20} ${headCy - 12} ${headCx + 14} ${headCy - 16} ${headCx + 9} ${headCy - 13} C ${headCx + 4} ${headCy - 10} ${headCx + 5} ${headCy - 4} ${headCx + 9} ${headCy + 1} L ${headCx + 20} ${headCy + 10} L ${headCx + 31} ${headCy + 1} C ${headCx + 35} ${headCy - 4} ${headCx + 36} ${headCy - 10} ${headCx + 31} ${headCy - 13} C ${headCx + 26} ${headCy - 16} ${headCx + 20} ${headCy - 12} ${headCx + 20} ${headCy - 6} Z`}
-                transform={`translate(${headCx + 20}, ${headCy - 6}) scale(0.6) translate(${-(headCx + 20)}, ${-(headCy - 6)})`}
+                d="M 100 52 C 100 46 94 42 89 45 C 84 48 85 54 89 59 L 100 68 L 111 59 C 115 54 116 48 111 45 C 106 42 100 46 100 52 Z"
+                transform="translate(100, 52) scale(0.65) translate(-100, -52)"
               />
             </g>
           )}
@@ -280,7 +186,7 @@ export const SaturatorCharacterFace: React.FC<SaturatorCharacterFaceProps> = ({
           {stage === 1 && (
             // Stage 1: Content gentle smile
             <path
-              d={`M ${headCx - 10} ${headCy + 8} Q ${headCx} ${headCy + 17} ${headCx + 10} ${headCy + 8}`}
+              d="M 70 66 Q 80 75 90 66"
               stroke="#1a1c23"
               strokeWidth="3.5"
               strokeLinecap="round"
@@ -291,7 +197,7 @@ export const SaturatorCharacterFace: React.FC<SaturatorCharacterFaceProps> = ({
           {stage === 2 && (
             // Stage 2: Happy open smile ^ ▽ ^
             <path
-              d={`M ${headCx - 12} ${headCy + 6} Q ${headCx} ${headCy + 24} ${headCx + 12} ${headCy + 6} Z`}
+              d="M 68 64 Q 80 82 92 64 Z"
               fill="#ef4444"
               stroke="#1a1c23"
               strokeWidth="3.5"
@@ -303,7 +209,7 @@ export const SaturatorCharacterFace: React.FC<SaturatorCharacterFaceProps> = ({
             // Stage 3: Wide happy smile with tooth
             <g>
               <path
-                d={`M ${headCx - 14} ${headCy + 6} Q ${headCx} ${headCy + 28} ${headCx + 14} ${headCy + 6} Z`}
+                d="M 66 64 Q 80 86 94 64 Z"
                 fill="#e11d48"
                 stroke="#1a1c23"
                 strokeWidth="3.5"
@@ -311,7 +217,7 @@ export const SaturatorCharacterFace: React.FC<SaturatorCharacterFaceProps> = ({
               />
               {/* Tongue/Highlight */}
               <path
-                d={`M ${headCx - 8} ${headCy + 17} Q ${headCx} ${headCy + 26} ${headCx + 8} ${headCy + 17} Z`}
+                d="M 72 75 Q 80 84 88 75 Z"
                 fill="#fb7185"
               />
             </g>
@@ -321,8 +227,8 @@ export const SaturatorCharacterFace: React.FC<SaturatorCharacterFaceProps> = ({
             // Stage 4: Ecstatic open mouth in saturation bliss ♥ O ♥
             <g>
               <ellipse
-                cx={headCx}
-                cy={headCy + 14}
+                cx="80"
+                cy="72"
                 rx="14"
                 ry="16"
                 fill="#be123c"
@@ -330,8 +236,8 @@ export const SaturatorCharacterFace: React.FC<SaturatorCharacterFaceProps> = ({
                 strokeWidth="3.5"
               />
               <ellipse
-                cx={headCx}
-                cy={headCy + 19}
+                cx="80"
+                cy="77"
                 rx="8"
                 ry="8"
                 fill="#fda4af"
