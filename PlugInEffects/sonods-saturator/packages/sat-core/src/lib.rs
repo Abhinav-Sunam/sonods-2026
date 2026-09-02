@@ -9,12 +9,16 @@
 
 pub mod adaa;
 pub mod antideriv;
+pub mod chain;
+pub mod filters;
 pub mod oversampling;
 pub mod smoothing;
 pub mod waveshaper;
 
 pub use adaa::AdaaState;
 pub use antideriv::{antideriv1, antideriv2};
+pub use chain::SaturatorChannel;
+pub use filters::{Biquad, DcBlocker};
 pub use oversampling::{HalfBand2x, OversampledSaturator, Quality};
 pub use smoothing::{
     CharacterCrossfader, SmoothedParam, CHARACTER_CROSSFADE_MS, DRIVE_SMOOTHING_MS,
