@@ -10,8 +10,8 @@
     "build": "node scripts/copy-wasm.mjs && tsc",
     "test": "vitest run"
   },
-  "dependencies": {},
   "devDependencies": {
+    "@types/node": "^26.4.1",
     "typescript": "^5.7.3",
     "vite": "^6.2.0",
     "vitest": "^3.0.7"
