@@ -370,4 +370,65 @@ mod tests {
         engine.process_block(&mut impulse_l, &mut impulse_r);
         assert!(impulse_l[0] > 0.0);
     }
+
+    #[test]
+    fn linear_phase_fir_mode_latency_and_filtering() {
+        let sample_rate = 48000.0;
+        let mut engine = EqEngine::new(sample_rate);
+        engine.set_band(0, Shape::Bell, 1000.0, 6.0, 1.0, true);
+        engine.set_phase_mode(PhaseMode::LinearPhase);
+
+        // Latency must match half FIR kernel length
+        assert_eq!(engine.latency_samples, 512); // Medium preset is 1024 taps
+
+        let block_size = 1024;
+        let mut left = vec![1.0f32; block_size];
+        let mut right = vec![1.0f32; block_size];
+        engine.process_block(&mut left, &mut right);
+
+        // Verify FIR processed non-zero samples
+        assert!(left.iter().any(|&x| (x - 1.0).abs() > 1e-4));
+    }
+
+    #[test]
+    fn dynamic_eq_envelope_gain_compression() {
+        let sample_rate = 48000.0;
+        let mut engine = EqEngine::new(sample_rate);
+        engine.set_band(0, Shape::Bell, 1000.0, 0.0, 1.0, true);
+        engine.set_band_param(0, 7, 1.0); // DynamicEnabled = true
+        engine.set_band_param(0, 8, -20.0); // DynamicThreshold = -20 dB
+        engine.set_band_param(0, 9, -6.0); // DynamicRange = -6 dB (compression)
+
+        let block_size = 4800;
+        let mut left = vec![0.8f32; block_size]; // Loud input signal (~ -2 dB)
+        let mut right = vec![0.8f32; block_size];
+
+        engine.process_block(&mut left, &mut right);
+
+        let band = engine.bands[0].as_ref().unwrap();
+        // Dynamic gain offset must have moved in the negative/compress direction
+        assert!(band.dynamic_gain_offset < -0.5);
+    }
+
+    #[test]
+    fn mid_side_processing_mode_isolation() {
+        let sample_rate = 48000.0;
+        let mut engine = EqEngine::new(sample_rate);
+        // Boost 1000 Hz by +12 dB only on Mid channel
+        engine.set_band(0, Shape::Bell, 1000.0, 12.0, 2.0, true);
+        engine.set_band_param(0, 6, ProcessingMode::Mid as usize as f64);
+
+        let block_size = 2048;
+        // Pure Side signal (L = 1.0, R = -1.0) -> Mid = (L+R)/2 = 0
+        let mut left_side = vec![0.5f32; block_size];
+        let mut right_side = vec![-0.5f32; block_size];
+
+        engine.process_block(&mut left_side, &mut right_side);
+
+        // Side signal should pass completely unaltered through Mid EQ
+        for i in (block_size / 2)..block_size {
+            assert!((left_side[i] - 0.5).abs() < 1e-3);
+            assert!((right_side[i] - (-0.5)).abs() < 1e-3);
+        }
+    }
 }

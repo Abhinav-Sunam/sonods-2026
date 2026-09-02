@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build:dsp": "cd packages/dsp-core && wasm-pack build --target no-modules --release && cd ../eq-engine && node scripts/copy-wasm.mjs",
-    "test:dsp": "cd packages/dsp-core && cargo test",
+    "build:dsp": "cargo build --target wasm32-unknown-unknown --release --manifest-path packages/dsp-core/Cargo.toml && node packages/eq-engine/scripts/copy-wasm.mjs",
+    "test:dsp": "cargo test --manifest-path packages/dsp-core/Cargo.toml",
     "test": "pnpm -r test",
     "build": "pnpm -r build",
     "dev": "pnpm --filter @sonods/demo dev"

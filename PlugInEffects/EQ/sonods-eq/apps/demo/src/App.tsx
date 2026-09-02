@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { EqState, PhaseMode, Shape, SonodsEqNode } from '@sonods/eq-engine';
 import { SonodsEq, INSTRUMENT_PRESETS, applyPresetWithAnimation, SessionRegistry } from '@sonods/eq-ui';
-import { AudioHarness, SourceType } from './audioHarness.js';
+import { AudioHarness, SourceType } from './audioHarness';
 import './style.css';
 
 export const App: React.FC = () => {
@@ -79,7 +79,7 @@ export const App: React.FC = () => {
     const nextBypass = !isBypassed;
     setIsBypassed(nextBypass);
     for (const band of node.getBands()) {
-      node.setBandParam(band.index, 5, nextBypass ? 0 : 1);
+      node.setBandParam(band.index, ParamId.Bypass, nextBypass ? 0 : 1);
     }
   };
 
@@ -104,7 +104,7 @@ export const App: React.FC = () => {
   const handleResetFlat = () => {
     if (!node) return;
     for (const band of node.getBands()) {
-      node.setBandParam(band.index, 1, 0.0);
+      node.setBandParam(band.index, ParamId.Gain, 0.0);
     }
   };
 

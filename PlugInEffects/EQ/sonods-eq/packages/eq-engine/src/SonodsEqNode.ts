@@ -43,6 +43,7 @@ export class SonodsEqNode {
 
   // State change subscribers
   private listeners: Set<(state: EqState) => void> = new Set();
+  private currentSnapshot: EqState;
   private readyPromise: Promise<void>;
 
   constructor(audioContext: AudioContext) {
@@ -61,6 +62,12 @@ export class SonodsEqNode {
 
     // Connect pre-analyser tap
     this.inputNode.connect(this.preAnalyser);
+
+    this.currentSnapshot = {
+      bands: [],
+      phaseMode: this.phaseMode,
+      sampleRate: audioContext.sampleRate,
+    };
 
     this.sharedLayout = createSharedMemoryLayout();
     this.readyPromise = this.init();
@@ -301,11 +308,7 @@ export class SonodsEqNode {
   }
 
   public getState(): EqState {
-    return {
-      bands: this.getBands(),
-      phaseMode: this.phaseMode,
-      sampleRate: this.audioContext.sampleRate,
-    };
+    return this.currentSnapshot;
   }
 
   public setState(state: EqState): void {
@@ -410,10 +413,18 @@ export class SonodsEqNode {
     return () => this.listeners.delete(listener);
   }
 
+  private updateSnapshot(): void {
+    this.currentSnapshot = {
+      bands: this.getBands(),
+      phaseMode: this.phaseMode,
+      sampleRate: this.audioContext.sampleRate,
+    };
+  }
+
   private notifyState(): void {
-    const state = this.getState();
+    this.updateSnapshot();
     for (const listener of this.listeners) {
-      listener(state);
+      listener(this.currentSnapshot);
     }
   }
 
