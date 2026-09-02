@@ -36,7 +36,7 @@ export const TransferCurveCanvas: React.FC<TransferCurveCanvasProps> = ({
       ctx.clearRect(0, 0, width, height);
 
       // 1. Draw Subtle Grid
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
       ctx.lineWidth = 1;
 
       // Axis lines
@@ -54,7 +54,7 @@ export const TransferCurveCanvas: React.FC<TransferCurveCanvasProps> = ({
       ctx.strokeRect(10, 10, width - 20, height - 20);
 
       // Linear identity reference line (y = x)
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(10, height - 10);
@@ -136,7 +136,7 @@ export const TransferCurveCanvas: React.FC<TransferCurveCanvasProps> = ({
         background: 'var(--sat-bg-input)',
         border: '1px solid var(--sat-border-subtle)',
         overflow: 'hidden',
-        boxShadow: 'inset 0 2px 6px rgba(0, 0, 0, 0.5)',
+        boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.08)',
       }}
     >
       <canvas

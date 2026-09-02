@@ -1,25 +1,29 @@
 /* SonoDS Saturator Design Tokens & Theme Stylesheet */
+/* Light Studio Theme — matching SonoDS EQ visual language */
 
 :root {
-  /* Surface colors */
-  --sat-bg-base: #0f1115;
-  --sat-bg-panel: rgba(22, 26, 33, 0.85);
-  --sat-bg-panel-solid: #161a21;
-  --sat-bg-elevated: rgba(30, 36, 47, 0.7);
-  --sat-bg-input: #12151b;
-  --sat-bg-hover: rgba(255, 255, 255, 0.05);
+  /* Surface colors — LIGHT THEME matching EQ */
+  --sat-bg-base: #FFFFFF;
+  --sat-bg-panel: rgba(255, 255, 255, 0.92);
+  --sat-bg-panel-solid: #FFFFFF;
+  --sat-bg-elevated: #F4F4F5;
+  --sat-bg-input: #FAFAFA;
+  --sat-bg-hover: rgba(0, 0, 0, 0.04);
+  --sat-bg-rack: #E8E8EC;
 
   /* Borders & Dividers */
-  --sat-border-subtle: rgba(255, 255, 255, 0.08);
-  --sat-border-highlight: rgba(255, 255, 255, 0.16);
+  --sat-border-subtle: #E4E4E7;
+  --sat-border-highlight: #D4D4D8;
+  --sat-border-chassis: #18181B;
   --sat-border-focus: #38bdf8;
 
   /* Typography */
-  --sat-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --sat-font-mono: 'SF Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
-  --sat-text-primary: #f8fafc;
-  --sat-text-secondary: #94a3b8;
-  --sat-text-muted: #64748b;
+  --sat-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --sat-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --sat-text-primary: #18181B;
+  --sat-text-secondary: #52525B;
+  --sat-text-muted: #71717A;
+  --sat-text-dim: #A1A1AA;
   --sat-text-accent: #38bdf8;
 
   /* Character Accent Colors */
@@ -51,17 +55,18 @@
     #ef4444 100%
   );
 
-  /* Shadows & Glassmorphism */
-  --sat-shadow-panel: 0 16px 40px -8px rgba(0, 0, 0, 0.6), 0 0 1px rgba(255, 255, 255, 0.1) inset;
-  --sat-shadow-knob: 0 8px 24px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(255, 255, 255, 0.1) inset;
+  /* Shadows & Radius — matching EQ chassis style */
+  --sat-shadow-panel: 0 20px 45px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+  --sat-shadow-knob: 0 4px 12px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.06);
   --sat-blur-glass: blur(16px);
   --sat-radius-sm: 6px;
   --sat-radius-md: 10px;
-  --sat-radius-lg: 16px;
+  --sat-radius-lg: 24px;
   --sat-radius-full: 9999px;
+  --sat-transition-fast: 0.12s ease;
 }
 
-/* Master container styling */
+/* Master container styling — Light chassis like EQ */
 .sat-root {
   font-family: var(--sat-font-family);
   color: var(--sat-text-primary);
@@ -77,14 +82,14 @@
   box-sizing: border-box;
 }
 
-/* Button & Toggle styling */
+/* Button & Toggle styling — matching EQ controlBtn */
 .sat-btn {
-  background: var(--sat-bg-input);
-  border: 1px solid var(--sat-border-subtle);
+  background: #FFFFFF;
+  border: 1.5px solid #D4D4D8;
   color: var(--sat-text-secondary);
   font-size: 11px;
-  font-weight: 600;
-  padding: 6px 12px;
+  font-weight: 700;
+  padding: 5px 12px;
   border-radius: var(--sat-radius-sm);
   cursor: pointer;
   transition: all 0.15s ease;
@@ -95,16 +100,16 @@
 }
 
 .sat-btn:hover {
-  background: var(--sat-bg-hover);
+  background: #F4F4F5;
   color: var(--sat-text-primary);
-  border-color: var(--sat-border-highlight);
+  border-color: #A1A1AA;
 }
 
 .sat-btn.active {
-  background: var(--sat-bg-elevated);
-  color: var(--sat-text-primary);
-  border-color: var(--sat-border-focus);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+  background: var(--sat-text-primary);
+  color: #FFFFFF;
+  border-color: var(--sat-text-primary);
+  box-shadow: none;
 }
 
 /* Tooltip badge */
@@ -115,6 +120,7 @@
   letter-spacing: 0.05em;
   padding: 2px 6px;
   border-radius: var(--sat-radius-full);
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--sat-text-secondary);
+  background: #F4F4F5;
+  color: var(--sat-text-muted);
+  border: 1px solid #E4E4E7;
 }

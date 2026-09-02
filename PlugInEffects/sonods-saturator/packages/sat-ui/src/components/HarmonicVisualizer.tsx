@@ -60,7 +60,7 @@ export const HarmonicVisualizer: React.FC<HarmonicVisualizerProps> = ({
         width: '280px',
         height: '180px',
         justifyContent: 'space-between',
-        boxShadow: 'inset 0 2px 6px rgba(0, 0, 0, 0.5)',
+        boxShadow: 'inset 0 1px 3px rgba(0, 0, 0, 0.08)',
       }}
     >
       <div

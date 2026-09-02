@@ -166,20 +166,21 @@ export const App: React.FC = () => {
         minHeight: '100vh',
         padding: '32px 16px',
         boxSizing: 'border-box',
-        background: 'radial-gradient(circle at top, #1a2230 0%, #0b0d11 100%)',
+        background: '#F0F0F2',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
       }}
     >
       {/* --- Global Toolbar & Signal Generator --- */}
       <div
         style={{
-          width: '680px',
+          width: '740px',
           maxWidth: '100%',
           marginBottom: '16px',
-          padding: '12px 18px',
+          padding: '10px 18px',
           borderRadius: '12px',
-          background: 'rgba(22, 26, 33, 0.85)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+          background: '#FFFFFF',
+          border: '1.5px solid #D4D4D8',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.06)',
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
@@ -198,9 +199,9 @@ export const App: React.FC = () => {
               }
             }}
             style={{
-              background: '#12151b',
-              color: '#f8fafc',
-              border: '1px solid rgba(255,255,255,0.12)',
+              background: '#FAFAFA',
+              color: '#18181B',
+              border: '1.5px solid #D4D4D8',
               borderRadius: '6px',
               padding: '6px 10px',
               fontSize: '12px',
@@ -227,7 +228,7 @@ export const App: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              boxShadow: isPlaying ? '0 0 12px rgba(239, 68, 68, 0.4)' : 'none',
+              boxShadow: isPlaying ? '0 0 8px rgba(239, 68, 68, 0.3)' : 'none',
             }}
           >
             {isPlaying ? '⏹ STOP AUDIO' : '▶ PLAY AUDIO'}
@@ -240,9 +241,9 @@ export const App: React.FC = () => {
             value={selectedPreset}
             onChange={handlePresetSelect}
             style={{
-              background: '#12151b',
-              color: '#f8fafc',
-              border: '1px solid rgba(255,255,255,0.12)',
+              background: '#FAFAFA',
+              color: '#18181B',
+              border: '1.5px solid #D4D4D8',
               borderRadius: '6px',
               padding: '6px 10px',
               fontSize: '12px',
@@ -261,9 +262,9 @@ export const App: React.FC = () => {
             style={{
               padding: '6px 12px',
               borderRadius: '6px',
-              border: isBypassed ? '1px solid #eab308' : '1px solid rgba(255,255,255,0.1)',
-              background: isBypassed ? '#eab30822' : '#12151b',
-              color: isBypassed ? '#eab308' : '#94a3b8',
+              border: isBypassed ? '1.5px solid #eab308' : '1.5px solid #D4D4D8',
+              background: isBypassed ? '#fef9c322' : '#FFFFFF',
+              color: isBypassed ? '#a16207' : '#52525B',
               fontWeight: 700,
               fontSize: '11px',
               cursor: 'pointer',
@@ -278,7 +279,7 @@ export const App: React.FC = () => {
       {node ? (
         <SonodsSaturatorPlugin node={node} />
       ) : (
-        <div style={{ padding: '40px', color: '#94a3b8', fontSize: '14px' }}>
+        <div style={{ padding: '40px', color: '#71717A', fontSize: '14px' }}>
           Initializing SonoDS Saturator DSP Engine...
         </div>
       )}

@@ -18,7 +18,7 @@ export interface SonodsSaturatorPluginProps {
 
 export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
   node,
-  width = 680,
+  width = 740,
 }) => {
   const [state, setState] = useState<SaturatorState>(node.getState());
   const [viewTab, setViewTab] = useState<'curve' | 'harmonics'>('curve');
@@ -68,31 +68,51 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
     node.setAutoGain(!state.autoGain);
   };
 
+  const charColor =
+    state.character === 'tape'
+      ? 'var(--sat-color-tape)'
+      : state.character === 'tube'
+      ? 'var(--sat-color-tube)'
+      : 'var(--sat-color-transformer)';
+
+  const charGlow =
+    state.character === 'tape'
+      ? 'var(--sat-glow-tape)'
+      : state.character === 'tube'
+      ? 'var(--sat-glow-tube)'
+      : 'var(--sat-glow-transformer)';
+
+  const charAccentRaw =
+    state.character === 'tape'
+      ? '#f59e0b'
+      : state.character === 'tube'
+      ? '#f43f5e'
+      : '#06b6d4';
+
   return (
     <div
       className="sat-root"
       style={{
         width,
         maxWidth: '100%',
-        borderRadius: 'var(--sat-radius-lg)',
-        background: 'linear-gradient(180deg, #181d26 0%, #101319 100%)',
-        border: '1px solid var(--sat-border-subtle)',
+        borderRadius: '24px',
+        background: '#FFFFFF',
+        border: '3px solid #18181B',
         boxShadow: 'var(--sat-shadow-panel)',
-        padding: '20px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '20px',
-        backdropFilter: 'var(--sat-blur-glass)',
+        overflow: 'hidden',
       }}
     >
-      {/* --- Top Header Bar --- */}
+      {/* --- Top Header Bar (matching EQ topBar) --- */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          borderBottom: '1px solid var(--sat-border-subtle)',
-          paddingBottom: '14px',
+          padding: '10px 18px',
+          background: '#FAFAFA',
+          borderBottom: '1.5px solid #E4E4E7',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -101,23 +121,12 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
               width: '10px',
               height: '10px',
               borderRadius: '50%',
-              background:
-                state.character === 'tape'
-                  ? 'var(--sat-color-tape)'
-                  : state.character === 'tube'
-                  ? 'var(--sat-color-tube)'
-                  : 'var(--sat-color-transformer)',
-              boxShadow: `0 0 10px ${
-                state.character === 'tape'
-                  ? 'var(--sat-glow-tape)'
-                  : state.character === 'tube'
-                  ? 'var(--sat-glow-tube)'
-                  : 'var(--sat-glow-transformer)'
-              }`,
+              background: charColor,
+              boxShadow: `0 0 8px ${charGlow}`,
             }}
           />
-          <span style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '0.04em' }}>
-            SONODS SATURATOR
+          <span style={{ fontSize: '16px', fontWeight: 800, letterSpacing: '-0.3px', color: '#18181B' }}>
+            SonoDS Saturator
           </span>
           <span className="sat-badge">ADAA2 DSP</span>
         </div>
@@ -146,11 +155,10 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
       <div
         style={{
           display: 'flex',
-          background: 'var(--sat-bg-input)',
-          padding: '4px',
-          borderRadius: 'var(--sat-radius-md)',
-          border: '1px solid var(--sat-border-subtle)',
-          gap: '4px',
+          padding: '8px 18px',
+          gap: '6px',
+          background: '#FFFFFF',
+          borderBottom: '1.5px solid #E4E4E7',
         }}
       >
         {(['tape', 'tube', 'transformer'] as CharacterType[]).map((char) => {
@@ -162,12 +170,12 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
               ? 'Triode Tube'
               : 'Transformer Core';
 
-          const activeColor =
+          const activeColorVal =
             char === 'tape'
-              ? 'var(--sat-color-tape)'
+              ? '#f59e0b'
               : char === 'tube'
-              ? 'var(--sat-color-tube)'
-              : 'var(--sat-color-transformer)';
+              ? '#f43f5e'
+              : '#06b6d4';
 
           return (
             <button
@@ -175,18 +183,18 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
               onClick={() => handleCharacterChange(char)}
               style={{
                 flex: 1,
-                padding: '8px 12px',
-                fontSize: '12px',
+                padding: '7px 12px',
+                fontSize: '11px',
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '0.04em',
                 borderRadius: 'var(--sat-radius-sm)',
-                border: isActive ? `1px solid ${activeColor}` : '1px solid transparent',
-                background: isActive ? 'var(--sat-bg-elevated)' : 'transparent',
-                color: isActive ? '#ffffff' : 'var(--sat-text-muted)',
+                border: isActive ? `2px solid ${activeColorVal}` : '1.5px solid #D4D4D8',
+                background: isActive ? '#FFFFFF' : '#F4F4F5',
+                color: isActive ? '#18181B' : '#71717A',
                 cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                boxShadow: isActive ? `0 0 12px ${activeColor}33` : 'none',
+                transition: 'all 0.15s ease',
+                boxShadow: isActive ? `0 0 0 2px ${activeColorVal}33` : 'none',
               }}
             >
               {label}
@@ -195,27 +203,25 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
         })}
       </div>
 
-      {/* --- Main Middle Stage (Character Face & Visualizer) --- */}
+      {/* --- Main Middle Stage: Character Left | BIG Rainbow Knob Right --- */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '20px',
-          alignItems: 'center',
+          display: 'flex',
+          width: '100%',
+          background: '#FFFFFF',
         }}
       >
-        {/* Left: Expressive Animated Character Stage Face */}
+        {/* Left: Expressive Animated Character Stage + Rainbow Stream */}
         <div
           style={{
+            flex: 1,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'var(--sat-bg-panel)',
-            border: '1px solid var(--sat-border-subtle)',
-            borderRadius: 'var(--sat-radius-lg)',
             padding: '16px',
-            minHeight: '260px',
+            minHeight: '320px',
+            borderRight: '1.5px solid #E4E4E7',
           }}
         >
           <SaturatorCharacterFace
@@ -225,16 +231,104 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
           />
         </div>
 
+        {/* Right: BIG Hero Rainbow Drive Knob — THE visual centerpiece */}
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+            minHeight: '320px',
+            background: '#FAFAFA',
+          }}
+        >
+          <RainbowKnob
+            label="DRIVE"
+            value={state.drive}
+            min={0.0}
+            max={1.0}
+            step={0.01}
+            defaultValue={0.3}
+            size={200}
+            hero={true}
+            accentColor={charAccentRaw}
+            displayFormatter={(v) => `${Math.round(v * 100)}%`}
+            onChange={(v) => node.setDrive(v)}
+          />
+        </div>
+      </div>
+
+      {/* --- Bottom Controls Row: Knobs Left | Visualizer Right --- */}
+      <div
+        style={{
+          display: 'flex',
+          width: '100%',
+          borderTop: '1.5px solid #E4E4E7',
+          background: '#E8E8EC',
+        }}
+      >
+        {/* Left: Secondary Knobs (Tone, Mix, Output) */}
+        <div
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-around',
+            padding: '18px 16px',
+            borderRight: '1.5px solid #D4D4D8',
+          }}
+        >
+          <RainbowKnob
+            label="TONE"
+            value={state.tone}
+            min={-12.0}
+            max={12.0}
+            step={0.1}
+            defaultValue={0.0}
+            size={68}
+            unit=" dB"
+            onChange={(v) => node.setTone(v)}
+          />
+
+          <RainbowKnob
+            label="MIX"
+            value={state.mix}
+            min={0.0}
+            max={1.0}
+            step={0.01}
+            defaultValue={1.0}
+            size={68}
+            displayFormatter={(v) => `${Math.round(v * 100)}%`}
+            onChange={(v) => node.setMix(v)}
+          />
+
+          <RainbowKnob
+            label="OUTPUT"
+            value={state.outputGain}
+            min={-24.0}
+            max={24.0}
+            step={0.1}
+            defaultValue={0.0}
+            size={68}
+            unit=" dB"
+            onChange={(v) => node.setOutputGain(v)}
+          />
+        </div>
+
         {/* Right: Transfer Curve or Harmonic Spectrum Visualizer */}
         <div
           style={{
+            flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            gap: '10px',
+            gap: '6px',
+            padding: '10px 12px',
           }}
         >
           {/* Visualizer Mode Tabs */}
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '6px' }}>
             <button
               className={`sat-btn ${viewTab === 'curve' ? 'active' : ''}`}
               onClick={() => setViewTab('curve')}
@@ -252,16 +346,10 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
           {viewTab === 'curve' ? (
             <TransferCurveCanvas
               node={node}
-              width={280}
-              height={200}
+              width={300}
+              height={140}
               audioPeak={audioPeak}
-              accentColor={
-                state.character === 'tape'
-                  ? '#f59e0b'
-                  : state.character === 'tube'
-                  ? '#f43f5e'
-                  : '#06b6d4'
-              }
+              accentColor={charAccentRaw}
             />
           ) : (
             <HarmonicVisualizer
@@ -273,77 +361,53 @@ export const SonodsSaturatorPlugin: React.FC<SonodsSaturatorPluginProps> = ({
         </div>
       </div>
 
-      {/* --- Bottom Controls Stage (Rainbow Knobs) --- */}
+      {/* --- Bottom Bar (matching EQ bottomBar) --- */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: '1.2fr 1fr 1fr 1fr',
-          gap: '16px',
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'var(--sat-bg-panel)',
-          border: '1px solid var(--sat-border-subtle)',
-          borderRadius: 'var(--sat-radius-lg)',
-          padding: '18px 24px',
+          padding: '8px 18px',
+          background: '#FAFAFA',
+          borderTop: '1.5px solid #E4E4E7',
         }}
       >
-        {/* Main Drive Knob (Larger size) */}
-        <RainbowKnob
-          label="DRIVE"
-          value={state.drive}
-          min={0.0}
-          max={1.0}
-          step={0.01}
-          defaultValue={0.3}
-          size={84}
-          accentColor={
-            state.character === 'tape'
-              ? '#f59e0b'
-              : state.character === 'tube'
-              ? '#f43f5e'
-              : '#06b6d4'
-          }
-          displayFormatter={(v) => `${Math.round(v * 100)}%`}
-          onChange={(v) => node.setDrive(v)}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Stage indicator */}
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              color: charAccentRaw,
+              textTransform: 'uppercase',
+              letterSpacing: '0.03em',
+            }}
+          >
+            Stage {state.drive < 0.25 ? 1 : state.drive < 0.55 ? 2 : state.drive < 0.85 ? 3 : 4}
+          </span>
+          <span style={{ fontSize: '10px', color: '#A1A1AA' }}>•</span>
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 600,
+              color: '#52525B',
+              fontFamily: 'var(--sat-font-mono)',
+            }}
+          >
+            Drive {Math.round(state.drive * 100)}%
+          </span>
+        </div>
 
-        {/* Tone Pre-emphasis Knob */}
-        <RainbowKnob
-          label="TONE"
-          value={state.tone}
-          min={-12.0}
-          max={12.0}
-          step={0.1}
-          defaultValue={0.0}
-          size={68}
-          unit=" dB"
-          onChange={(v) => node.setTone(v)}
-        />
-
-        {/* Mix (Dry/Wet) Knob */}
-        <RainbowKnob
-          label="MIX"
-          value={state.mix}
-          min={0.0}
-          max={1.0}
-          step={0.01}
-          defaultValue={1.0}
-          size={68}
-          displayFormatter={(v) => `${Math.round(v * 100)}%`}
-          onChange={(v) => node.setMix(v)}
-        />
-
-        {/* Output Gain Trim Knob */}
-        <RainbowKnob
-          label="OUTPUT"
-          value={state.outputGain}
-          min={-24.0}
-          max={24.0}
-          step={0.1}
-          defaultValue={0.0}
-          size={68}
-          unit=" dB"
-          onChange={(v) => node.setOutputGain(v)}
-        />
+        <span
+          style={{
+            fontSize: '18px',
+            fontWeight: 800,
+            letterSpacing: '-0.5px',
+            color: '#18181B',
+          }}
+        >
+          SonoDS
+        </span>
       </div>
     </div>
   );
