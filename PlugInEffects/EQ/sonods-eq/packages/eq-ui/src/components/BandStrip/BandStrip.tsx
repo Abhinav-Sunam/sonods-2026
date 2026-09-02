@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { BandState, Shape } from '@sonods/eq-engine';
 import { Knob } from '../Knob/index.js';
 import { GainSlider } from '../GainSlider/index.js';
@@ -17,6 +17,14 @@ export interface BandStripProps {
   onShapeChange: (shape: Shape) => void;
 }
 
+const SHAPE_OPTIONS = [
+  { shape: Shape.LowCut, label: 'Low Cut', short: 'HP' },
+  { shape: Shape.LowShelf, label: 'Low Shelf', short: 'LS' },
+  { shape: Shape.Bell, label: 'Peak / Bell', short: 'Peak' },
+  { shape: Shape.HighShelf, label: 'High Shelf', short: 'HS' },
+  { shape: Shape.HighCut, label: 'High Cut', short: 'LP' },
+];
+
 export const BandStrip: React.FC<BandStripProps> = ({
   band,
   bandNumber,
@@ -28,29 +36,32 @@ export const BandStrip: React.FC<BandStripProps> = ({
   onQChange,
   onShapeChange,
 }) => {
-  const getShapeSymbol = (shape: Shape) => {
-    switch (shape) {
-      case Shape.LowCut:
-        return 'HP';
-      case Shape.LowShelf:
-        return 'LS';
-      case Shape.Bell:
-        return 'PEAK';
-      case Shape.HighShelf:
-        return 'HS';
-      case Shape.HighCut:
-        return 'LP';
-      default:
-        return 'PEAK';
-    }
-  };
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  const cycleShape = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const shapes = [Shape.LowCut, Shape.LowShelf, Shape.Bell, Shape.HighShelf, Shape.HighCut];
-    const currIdx = shapes.indexOf(band.shape);
-    const nextShape = shapes[(currIdx + 1) % shapes.length];
-    onShapeChange(nextShape);
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
+
+  const currentShapeOpt =
+    SHAPE_OPTIONS.find((opt) => opt.shape === band.shape) || SHAPE_OPTIONS[2];
+
+  const handleGain = (newGain: number) => {
+    // If user moves gain on a Cut filter (HP/LP), automatically switch to Peak or Shelf so gain works immediately!
+    if (band.shape === Shape.LowCut && Math.abs(newGain) > 0.2) {
+      onShapeChange(Shape.LowShelf);
+    } else if (band.shape === Shape.HighCut && Math.abs(newGain) > 0.2) {
+      onShapeChange(Shape.HighShelf);
+    }
+    onGainChange(newGain);
   };
 
   return (
@@ -58,7 +69,7 @@ export const BandStrip: React.FC<BandStripProps> = ({
       className={`${styles.bandStrip} ${isSelected ? styles.selected : ''}`}
       onClick={onSelect}
     >
-      {/* Header: Band Number & Shape */}
+      {/* Header: Number on Top, Shape Dropdown Button Below */}
       <div className={styles.headerRow}>
         <div
           className={styles.bandNumber}
@@ -69,18 +80,42 @@ export const BandStrip: React.FC<BandStripProps> = ({
         </div>
         <button
           className={styles.shapeBtn}
-          onClick={cycleShape}
-          title={`Filter: ${getShapeSymbol(band.shape)} (Click to cycle)`}
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuOpen(!menuOpen);
+          }}
+          title={`Filter: ${currentShapeOpt.label} (Click to change)`}
         >
-          {getShapeSymbol(band.shape)}
+          <span>{currentShapeOpt.short}</span>
+          <span className={styles.chevron}>▾</span>
         </button>
       </div>
+
+      {/* Floating Shape Dropdown Menu */}
+      {menuOpen && (
+        <div ref={menuRef} className={styles.shapeMenu} onClick={(e) => e.stopPropagation()}>
+          {SHAPE_OPTIONS.map((opt) => (
+            <div
+              key={opt.shape}
+              className={`${styles.shapeMenuItem} ${
+                band.shape === opt.shape ? styles.active : ''
+              }`}
+              onClick={() => {
+                onShapeChange(opt.shape);
+                setMenuOpen(false);
+              }}
+            >
+              {opt.label}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Vertical Gain Slider */}
       <GainSlider
         gain={band.gain}
         color={color}
-        onChange={onGainChange}
+        onChange={handleGain}
       />
 
       {/* FREQ & BW/Q Rotary Knobs */}

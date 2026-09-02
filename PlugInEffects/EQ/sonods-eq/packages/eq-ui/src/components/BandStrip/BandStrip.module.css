@@ -5,23 +5,28 @@
   background: var(--sonods-bg-strip, #181C26);
   border: 1px solid var(--sonods-border-color, #2A3040);
   border-radius: 8px;
-  padding: 8px 4px;
-  gap: 6px;
-  min-width: 44px;
+  padding: 6px 3px;
+  gap: 5px;
+  width: 48px;
+  min-width: 48px;
+  max-width: 48px;
+  box-sizing: border-box;
   transition: all 0.15s ease;
+  position: relative;
 }
 
 .bandStrip.selected {
   background: var(--sonods-bg-strip-active, #222735);
-  border-color: #475569;
+  border-color: #64748B;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .headerRow {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 4px;
+  width: 100%;
 }
 
 .bandNumber {
@@ -36,34 +41,78 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.1s ease;
-}
-
-.bandNumber:hover {
-  transform: scale(1.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .shapeBtn {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 3px;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  padding: 2px 4px;
+  padding: 2px 3px;
   cursor: pointer;
-  color: var(--sonods-text-muted);
-  transition: all 0.15s ease;
+  color: var(--sonods-text-bright);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 42px;
+  box-sizing: border-box;
+  transition: all 0.12s ease;
 }
 
 .shapeBtn:hover {
   background: rgba(255, 255, 255, 0.18);
-  color: #FFFFFF;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.chevron {
+  font-size: 8px;
+  opacity: 0.7;
+}
+
+.shapeMenu {
+  position: absolute;
+  top: 48px;
+  left: 0;
+  background: #181C26;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 3px;
+  z-index: 200;
+  min-width: 90px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shapeMenuItem {
+  padding: 4px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #E2E8F0;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.shapeMenuItem:hover {
+  background: rgba(132, 204, 22, 0.2);
+  color: #84CC16;
+}
+
+.shapeMenuItem.active {
+  background: #84CC16;
+  color: #000000;
+  font-weight: 700;
 }
 
 .controlsColumn {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   width: 100%;
 }

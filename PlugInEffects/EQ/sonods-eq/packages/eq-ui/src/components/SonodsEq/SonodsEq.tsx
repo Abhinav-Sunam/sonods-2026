@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { BandState, CutSlope, ParamId, PhaseMode, Shape, SonodsEqNode } from '@sonods/eq-engine';
+import { BandState, CutSlope, ParamId, Shape, SonodsEqNode } from '@sonods/eq-engine';
 import { useSonodsEqStore } from '../../hooks/useSonodsEqStore.js';
 import { SessionRegistry } from '../../sessionRegistry.js';
 import {
@@ -34,6 +34,7 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
   const state = useSonodsEqStore(node);
   const [selectedBandIndex, setSelectedBandIndex] = useState<number | null>(null);
   const [annotations, setAnnotations] = useState<ExplainableAnnotation[]>([]);
+  const [isBypassed, setIsBypassed] = useState(false);
   const [fps, setFps] = useState(60);
   const [frameDurationMs, setFrameDurationMs] = useState(0);
 
@@ -86,6 +87,22 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
     },
     [node]
   );
+
+  const handleToggleBypass = useCallback(() => {
+    if (!node) return;
+    const nextBypass = !isBypassed;
+    setIsBypassed(nextBypass);
+    for (const b of node.getBands()) {
+      node.setBandParam(b.index, ParamId.Enabled, nextBypass ? 0 : 1);
+    }
+  }, [node, isBypassed]);
+
+  const handleResetFlat = useCallback(() => {
+    if (!node) return;
+    for (const b of node.getBands()) {
+      node.setBandParam(b.index, ParamId.Gain, 0.0);
+    }
+  }, [node]);
 
   const handleContextMenu = useCallback((x: number, y: number, bandIndex: number) => {
     setMenuState({ x, y, bandIndex });
@@ -213,32 +230,15 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
       {/* Bottom Master Bar */}
       <div className={styles.bottomBar}>
         <div className={styles.masterControls}>
-          <div className={styles.phaseGroup}>
-            <button
-              className={`${styles.phaseBtn} ${
-                state.phaseMode === PhaseMode.ZeroLatency ? styles.active : ''
-              }`}
-              onClick={() => node?.setPhaseMode(PhaseMode.ZeroLatency)}
-            >
-              Zero Latency
-            </button>
-            <button
-              className={`${styles.phaseBtn} ${
-                state.phaseMode === PhaseMode.NaturalPhase ? styles.active : ''
-              }`}
-              onClick={() => node?.setPhaseMode(PhaseMode.NaturalPhase)}
-            >
-              Natural Phase
-            </button>
-            <button
-              className={`${styles.phaseBtn} ${
-                state.phaseMode === PhaseMode.LinearPhase ? styles.active : ''
-              }`}
-              onClick={() => node?.setPhaseMode(PhaseMode.LinearPhase)}
-            >
-              Linear Phase
-            </button>
-          </div>
+          <button
+            className={`${styles.controlBtn} ${isBypassed ? styles.active : ''}`}
+            onClick={handleToggleBypass}
+          >
+            {isBypassed ? 'Bypassed' : 'Bypass'}
+          </button>
+          <button className={styles.controlBtn} onClick={handleResetFlat}>
+            Reset Flat
+          </button>
           {showDevOverlay && (
             <span className={styles.devOverlay}>
               FPS: {Math.round(fps)} | {frameDurationMs.toFixed(1)}ms

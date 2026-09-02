@@ -176,15 +176,34 @@ export const CurveCanvas: React.FC<CurveCanvasProps> = ({
       isDraggingRef.current = true;
       canvasRef.current.setPointerCapture(e.pointerId);
     } else if (node) {
-      // Create new Bell band on empty space click (Task 4.3)
+      const currentBands = node.getBands();
       const freq = xToFrequency(x, rect.width);
       const gain = yToGain(y, rect.height);
-      const newBand = node.addBand(Shape.Bell, freq, gain, 1.0);
-      if (newBand) {
-        onSelectBand(newBand.index);
-        dragBandIndexRef.current = newBand.index;
+
+      if (currentBands.length >= 7) {
+        // Select closest band in frequency and drag it
+        let closestIndex = currentBands[0].index;
+        let minDiff = Infinity;
+        for (const b of currentBands) {
+          const diff = Math.abs(Math.log10(b.freq) - Math.log10(freq));
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestIndex = b.index;
+          }
+        }
+        onSelectBand(closestIndex);
+        dragBandIndexRef.current = closestIndex;
         isDraggingRef.current = true;
+        node.setBandParam(closestIndex, ParamId.Gain, gain);
         canvasRef.current.setPointerCapture(e.pointerId);
+      } else {
+        const newBand = node.addBand(Shape.Bell, freq, gain, 1.4);
+        if (newBand) {
+          onSelectBand(newBand.index);
+          dragBandIndexRef.current = newBand.index;
+          isDraggingRef.current = true;
+          canvasRef.current.setPointerCapture(e.pointerId);
+        }
       }
     }
   };
