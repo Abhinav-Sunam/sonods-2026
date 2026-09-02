@@ -447,4 +447,37 @@ mod tests {
             spread_no
         );
     }
+
+    #[test]
+    fn test_gain_reduction_exposure_matches_applied_reduction() {
+        let sr = 48000.0;
+        let mut comp = CompressorCore::new(sr);
+        comp.set_threshold_immediate(-12.0);
+        comp.set_ratio_immediate(4.0);
+        comp.set_mix_immediate(1.0);
+        comp.set_output_gain_db(0.0);
+        comp.set_auto_gain(0.0);
+
+        // Feed test signal through
+        for i in 0..1000 {
+            let t = i as f64 / sr;
+            let s = 0.8 * (2.0 * std::f64::consts::PI * 100.0 * t).sin();
+            let (out_l, _) = comp.process_sample(s, s);
+
+            let gr_db = comp.current_gain_reduction_db();
+            let expected_mult = 10.0_f64.powf(-gr_db / 20.0);
+
+            // In steady state, ratio of out_l to dry input must equal 10^(-gr_db / 20)
+            if s.abs() > 0.1 && i > 500 {
+                let actual_mult = out_l / s;
+                assert!(
+                    (actual_mult - expected_mult).abs() < 1e-4,
+                    "Exposed GR ({:.3} dB) does not match applied gain multiplier ({:.4} vs {:.4})",
+                    gr_db,
+                    actual_mult,
+                    expected_mult
+                );
+            }
+        }
+    }
 }
