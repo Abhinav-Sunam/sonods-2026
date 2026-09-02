@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { BandState, CutSlope, ParamId, Shape, SonodsEqNode } from '@sonods/eq-engine';
+import { BandState, CutSlope, ParamId, PhaseMode, Shape, SonodsEqNode } from '@sonods/eq-engine';
 import { useSonodsEqStore } from '../../hooks/useSonodsEqStore.js';
 import { SessionRegistry } from '../../sessionRegistry.js';
 import {
@@ -11,9 +11,11 @@ import {
 import { StatusDots } from '../StatusDots/index.js';
 import { Readout } from '../Readout/index.js';
 import { CurveCanvas } from '../CurveCanvas/index.js';
-import { ModePills, EqMode } from '../ModePills/index.js';
+import { BandStrip } from '../BandStrip/index.js';
+import { AiAssist } from '../AiAssist/index.js';
 import { ContextMenu } from '../ContextMenu/index.js';
 import { Annotations } from '../Annotations/index.js';
+import { BAND_COLORS } from '../../render/CurveRenderer.js';
 
 import '../../theme/tokens.css';
 import styles from './SonodsEq.module.css';
@@ -31,7 +33,6 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
 }) => {
   const state = useSonodsEqStore(node);
   const [selectedBandIndex, setSelectedBandIndex] = useState<number | null>(null);
-  const [activeMode, setActiveMode] = useState<EqMode>('curve');
   const [annotations, setAnnotations] = useState<ExplainableAnnotation[]>([]);
   const [fps, setFps] = useState(60);
   const [frameDurationMs, setFrameDurationMs] = useState(0);
@@ -43,7 +44,7 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
     bandIndex: number;
   } | null>(null);
 
-  // Session registry for multi-track cross-awareness (Phase 6)
+  // Cross-instance communication registry (Phase 6)
   const sessionRegistry = useMemo(() => {
     if (typeof window === 'undefined') return null;
     return new SessionRegistry(`eq-${Math.random().toString(36).substring(2, 7)}`, trackName);
@@ -55,34 +56,16 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
     };
   }, [sessionRegistry]);
 
-  // Set default initial band selection if bands exist
+  // Ensure initial band selection
   useEffect(() => {
     if (selectedBandIndex === null && state.bands.length > 0) {
-      setSelectedBandIndex(state.bands[Math.min(2, state.bands.length - 1)].index);
+      setSelectedBandIndex(state.bands[0].index);
     }
   }, [state.bands, selectedBandIndex]);
 
   const selectedBand = useMemo(() => {
     return state.bands.find((b: BandState) => b.index === selectedBandIndex) || null;
   }, [state.bands, selectedBandIndex]);
-
-  const handleModeChange = useCallback(
-    (mode: EqMode) => {
-      setActiveMode(mode);
-      if (mode === 'dynamic' && selectedBandIndex !== null && node) {
-        const b = state.bands.find((x: BandState) => x.index === selectedBandIndex);
-        if (b) {
-          node.setBandParam(selectedBandIndex, ParamId.DynamicEnabled, 1);
-          node.setBandParam(selectedBandIndex, ParamId.DynamicRange, -6.0);
-        }
-      } else if (mode === 'ai' && node) {
-        applyPresetWithAnimation(node, INSTRUMENT_PRESETS.vocal).then((notes) => {
-          setAnnotations(notes);
-        });
-      }
-    },
-    [selectedBandIndex, node, state.bands]
-  );
 
   const handleFrequencyChange = useCallback(
     (newFreq: number) => {
@@ -93,6 +76,17 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
     [selectedBandIndex, node]
   );
 
+  const handleSelectAiPreset = useCallback(
+    (presetKey: 'vocal' | 'kick' | 'bass' | 'acoustic') => {
+      if (node) {
+        applyPresetWithAnimation(node, INSTRUMENT_PRESETS[presetKey]).then((notes) => {
+          setAnnotations(notes);
+        });
+      }
+    },
+    [node]
+  );
+
   const handleContextMenu = useCallback((x: number, y: number, bandIndex: number) => {
     setMenuState({ x, y, bandIndex });
   }, []);
@@ -101,7 +95,7 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
     setMenuState(null);
   }, []);
 
-  // Keyboard navigation (Task 4.4)
+  // Keyboard navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (!node || state.bands.length === 0) return;
@@ -111,7 +105,7 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
         if (selectedBandIndex === null) {
           setSelectedBandIndex(state.bands[0].index);
         } else {
-          const currIdx = state.bands.findIndex((b) => b.index === selectedBandIndex);
+          const currIdx = state.bands.findIndex((b: BandState) => b.index === selectedBandIndex);
           const nextIdx = (currIdx + 1) % state.bands.length;
           setSelectedBandIndex(state.bands[nextIdx].index);
         }
@@ -164,34 +158,97 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
           selectedBand={selectedBand}
           onFrequencyChange={handleFrequencyChange}
         />
-        <StatusDots cpuWarning={frameDurationMs > 16.6} />
+        <div className={styles.topRightGroup}>
+          <AiAssist onSelectPreset={handleSelectAiPreset} />
+          <StatusDots cpuWarning={frameDurationMs > 16.6} />
+        </div>
       </div>
 
-      {/* Main Canvas Stage */}
-      <CurveCanvas
-        node={node}
-        bands={state.bands}
-        selectedBandIndex={selectedBandIndex}
-        onSelectBand={setSelectedBandIndex}
-        onContextMenu={handleContextMenu}
-        onFrameTiming={(f, d) => {
-          setFps(f);
-          setFrameDurationMs(d);
-        }}
-        sessionRegistry={sessionRegistry}
-      />
+      {/* Main Screen: Curve Visualizer (Left) + 7-Band Strip Rack (Right) */}
+      <div className={styles.mainStage}>
+        {/* Left: Interactive Response Curve Canvas */}
+        <div className={styles.canvasWrapper}>
+          <CurveCanvas
+            node={node}
+            bands={state.bands}
+            selectedBandIndex={selectedBandIndex}
+            onSelectBand={setSelectedBandIndex}
+            onContextMenu={handleContextMenu}
+            onFrameTiming={(f, d) => {
+              setFps(f);
+              setFrameDurationMs(d);
+            }}
+            sessionRegistry={sessionRegistry}
+          />
+        </div>
 
-      {/* AI Explainability Annotations */}
+        {/* Right: 7-Band Channel Strips matching FL Studio EQ 2 */}
+        <div className={styles.rackPanel}>
+          {state.bands.map((band: BandState, idx: number) => {
+            const color = BAND_COLORS[idx % BAND_COLORS.length];
+            return (
+              <BandStrip
+                key={band.index}
+                band={band}
+                bandNumber={idx + 1}
+                color={color}
+                isSelected={band.index === selectedBandIndex}
+                onSelect={() => setSelectedBandIndex(band.index)}
+                onGainChange={(g) => node?.setBandParam(band.index, ParamId.Gain, g)}
+                onFreqChange={(f) => node?.setBandParam(band.index, ParamId.Freq, f)}
+                onQChange={(q) => node?.setBandParam(band.index, ParamId.Q, q)}
+                onShapeChange={(s) => node?.setBandParam(band.index, ParamId.Shape, s)}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      {/* AI Explainability Annotations Banner */}
       <Annotations
         annotations={annotations}
         onDismiss={(id) => setAnnotations((prev) => prev.filter((a) => a.id !== id))}
       />
 
-      {/* Bottom Mode Action Pills */}
-      <ModePills activeMode={activeMode} onModeChange={handleModeChange} />
+      {/* Bottom Master Bar */}
+      <div className={styles.bottomBar}>
+        <div className={styles.masterControls}>
+          <div className={styles.phaseGroup}>
+            <button
+              className={`${styles.phaseBtn} ${
+                state.phaseMode === PhaseMode.ZeroLatency ? styles.active : ''
+              }`}
+              onClick={() => node?.setPhaseMode(PhaseMode.ZeroLatency)}
+            >
+              Zero Latency
+            </button>
+            <button
+              className={`${styles.phaseBtn} ${
+                state.phaseMode === PhaseMode.NaturalPhase ? styles.active : ''
+              }`}
+              onClick={() => node?.setPhaseMode(PhaseMode.NaturalPhase)}
+            >
+              Natural Phase
+            </button>
+            <button
+              className={`${styles.phaseBtn} ${
+                state.phaseMode === PhaseMode.LinearPhase ? styles.active : ''
+              }`}
+              onClick={() => node?.setPhaseMode(PhaseMode.LinearPhase)}
+            >
+              Linear Phase
+            </button>
+          </div>
+          {showDevOverlay && (
+            <span className={styles.devOverlay}>
+              FPS: {Math.round(fps)} | {frameDurationMs.toFixed(1)}ms
+            </span>
+          )}
+        </div>
 
-      {/* SonoDS Logo from hand-drawn sketch */}
-      <div className={styles.sonodsBrand}>SonoDS</div>
+        {/* SonoDS Signature Branding */}
+        <div className={styles.sonodsBrand}>SonoDS</div>
+      </div>
 
       {/* Right-click Context Menu */}
       {menuState && (
@@ -238,14 +295,6 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
           }}
           onClose={closeMenu}
         />
-      )}
-
-      {/* Dev Overlay */}
-      {showDevOverlay && (
-        <div className={styles.devOverlay}>
-          FPS: {Math.round(fps)} | Frame: {frameDurationMs.toFixed(1)}ms | DPR:{' '}
-          {typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1}
-        </div>
       )}
     </div>
   );

@@ -27,20 +27,22 @@ export const App: React.FC = () => {
     simulatedTrackRef.current = new SessionRegistry('simulated-remote-session', 'Kick Drum Track');
 
     eqNode.whenReady().then(() => {
-      // Add default curve matching sketch
+      // 7 standard bands matching Fruity Parametric EQ 2
       eqNode.addBand(Shape.LowCut, 35, 0, 0.7);
-      eqNode.addBand(Shape.LowShelf, 100, 3.5, 0.8);
-      eqNode.addBand(Shape.Bell, 450, -2.5, 1.4);
-      eqNode.addBand(Shape.Bell, 2400, 4.0, 2.0);
-      eqNode.addBand(Shape.HighShelf, 8500, 3.5, 0.9);
+      eqNode.addBand(Shape.LowShelf, 100, 2.5, 0.8);
+      eqNode.addBand(Shape.Bell, 300, -1.5, 1.4);
+      eqNode.addBand(Shape.Bell, 1000, 0.0, 1.4);
+      eqNode.addBand(Shape.Bell, 3200, 3.5, 1.8);
+      eqNode.addBand(Shape.HighShelf, 8500, 2.0, 0.9);
+      eqNode.addBand(Shape.HighCut, 18000, 0, 0.7);
 
-      // Wire nodes
+      // Wire audio nodes
       eqNode.connect(audioHarness.masterGain);
       audioHarness.masterGain.connect(audioCtx.destination);
 
       setNode(eqNode);
       setHarness(audioHarness);
-      setDspStatus(`Ready (${audioCtx.sampleRate} Hz) • Rust DF2T`);
+      setDspStatus(`DSP Engine: Active (${audioCtx.sampleRate} Hz) • Rust DF2T`);
       stateARef.current = eqNode.getState();
     });
 
@@ -135,7 +137,7 @@ export const App: React.FC = () => {
       {/* Header */}
       <header className="header">
         <div className="brand-title">
-          <h1>SonoDS Studio EQ</h1>
+          <h1>SonoDS Parametric EQ 2</h1>
         </div>
         <div className="status-badge" id="dsp-status">
           {dspStatus}
@@ -150,15 +152,13 @@ export const App: React.FC = () => {
       {/* Interaction Instructions */}
       <div className="instructions-card">
         <div>
-          <span className="key-tag">Click</span> Create Band &nbsp;|&nbsp;{' '}
-          <span className="key-tag">Drag</span> Freq / Gain &nbsp;|&nbsp;{' '}
-          <span className="key-tag">Scroll</span> Adjust Q &nbsp;|&nbsp;{' '}
-          <span className="key-tag">Shift+Drag</span> Lock Gain Axis
+          <span className="key-tag">Click/Drag</span> Canvas Node or Slider &nbsp;|&nbsp;{' '}
+          <span className="key-tag">Rotate Knobs</span> FREQ & BW &nbsp;|&nbsp;{' '}
+          <span className="key-tag">Double Click</span> Reset 0 dB
         </div>
         <div>
-          <span className="key-tag">Double Click</span> Reset Band &nbsp;|&nbsp;{' '}
-          <span className="key-tag">Right Click</span> Shape & Dynamic Menu &nbsp;|&nbsp;{' '}
-          <span className="key-tag">Tab / Arrows</span> Keyboard
+          <span className="key-tag">Top Shape Icon</span> Cycle Filter Type &nbsp;|&nbsp;{' '}
+          <span className="key-tag">Top-Right AI</span> Smart Preset Curves
         </div>
       </div>
 
@@ -167,10 +167,10 @@ export const App: React.FC = () => {
         {/* Audio Source Card */}
         <div className="control-card">
           <div className="card-title">
-            <span>Audio Signal Source</span>
+            <span>Audio Signal Generator</span>
             <span
               style={{
-                color: currentSource === 'stop' ? 'var(--text-dim)' : 'var(--accent)',
+                color: currentSource === 'stop' ? 'var(--text-dim)' : '#84CC16',
               }}
             >
               {currentSource === 'stop' ? 'Stopped' : `Playing ${currentSource.toUpperCase()}`}
@@ -210,7 +210,7 @@ export const App: React.FC = () => {
             </button>
           </div>
           <div className="volume-slider">
-            <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>Volume</span>
+            <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>Monitor Level</span>
             <input
               type="range"
               min="0"
@@ -225,32 +225,12 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Processing Mode & Phase Card */}
+        {/* Global EQ Functions */}
         <div className="control-card">
           <div className="card-title">
-            <span>Phase & Engine Mode</span>
+            <span>Global EQ & A/B Testing</span>
           </div>
           <div className="btn-group">
-            <button
-              className={`studio-btn ${phaseMode === PhaseMode.ZeroLatency ? 'active' : ''}`}
-              onClick={() => handleSetPhase(PhaseMode.ZeroLatency)}
-            >
-              Zero Latency (IIR)
-            </button>
-            <button
-              className={`studio-btn ${phaseMode === PhaseMode.NaturalPhase ? 'active' : ''}`}
-              onClick={() => handleSetPhase(PhaseMode.NaturalPhase)}
-            >
-              Natural Phase
-            </button>
-            <button
-              className={`studio-btn ${phaseMode === PhaseMode.LinearPhase ? 'active' : ''}`}
-              onClick={() => handleSetPhase(PhaseMode.LinearPhase)}
-            >
-              Linear Phase (FIR)
-            </button>
-          </div>
-          <div className="btn-group" style={{ marginTop: '4px' }}>
             <button
               className={`studio-btn ${isBypassed ? 'active' : ''}`}
               onClick={handleToggleBypass}
@@ -261,36 +241,25 @@ export const App: React.FC = () => {
               className={`studio-btn ${abState === 'B' ? 'active' : ''}`}
               onClick={handleToggleAB}
             >
-              A/B State: {abState}
+              A/B Compare: State {abState}
             </button>
             <button className="studio-btn" onClick={handleResetFlat}>
-              Flat Curve
+              Flat All Bands
             </button>
           </div>
         </div>
 
-        {/* Cross-Track Awareness & Presets */}
+        {/* Cross-Track AI Overlap */}
         <div className="control-card">
           <div className="card-title">
-            <span>Cross-Track AI Awareness</span>
+            <span>Cross-Track Collision Simulation</span>
           </div>
           <div className="btn-group">
             <button className="studio-btn" onClick={handleSimulateKickConflict}>
-              Simulate Kick Conflict
+              Simulate Kick Overlap
             </button>
             <button className="studio-btn" onClick={handleSimulateBassConflict}>
-              Simulate Bass Conflict
-            </button>
-          </div>
-          <div className="btn-group">
-            <button className="studio-btn" onClick={() => handleApplyPreset('vocal')}>
-              Vocal Preset
-            </button>
-            <button className="studio-btn" onClick={() => handleApplyPreset('kick')}>
-              Kick Preset
-            </button>
-            <button className="studio-btn" onClick={() => handleApplyPreset('bass')}>
-              Bass Preset
+              Simulate Bass Overlap
             </button>
           </div>
         </div>

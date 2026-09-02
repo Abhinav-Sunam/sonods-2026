@@ -14,7 +14,10 @@ export * from './hooks/useSonodsEqStore.js';
 // Components
 export * from './components/StatusDots/index.js';
 export * from './components/Readout/index.js';
-export * from './components/ModePills/index.js';
+export * from './components/Knob/index.js';
+export * from './components/GainSlider/index.js';
+export * from './components/BandStrip/index.js';
+export * from './components/AiAssist/index.js';
 export * from './components/ContextMenu/index.js';
 export * from './components/Annotations/index.js';
 export * from './components/CurveCanvas/index.js';

@@ -1,53 +1,32 @@
 :root {
-  /* Hand-Drawn Sketch Light Theme */
-  --sonods-color-bg: #FFFFFF;
-  --sonods-color-panel: #FFFFFF;
-  --sonods-color-panel-translucent: rgba(255, 255, 255, 0.92);
-  --sonods-color-curve: #18181B; /* Solid near-black response curve */
-  --sonods-color-curve-ghost: rgba(24, 24, 27, 0.25);
+  /* FL EQ2 Inspired Professional Studio Palette */
+  --sonods-bg-chassis: #12151D;
+  --sonods-bg-screen: #0A0D14;
+  --sonods-bg-strip: #181C26;
+  --sonods-bg-strip-active: #222735;
+  --sonods-border-color: #2A3040;
+  --sonods-border-dark: #000000;
   
-  /* Band Handles & Knob Accent */
-  --sonods-color-handle: #84CC16; /* Clean flat green dot from sketch */
-  --sonods-color-handle-border: #65A30D;
-  --sonods-color-handle-selected: #4D7C0F;
-  --sonods-color-gold: #EAB308; /* Yellow/gold rim on rotary knobs */
-  --sonods-color-gold-ring: #FACC15;
+  /* Text */
+  --sonods-text-bright: #F8FAFC;
+  --sonods-text-muted: #94A3B8;
+  --sonods-text-dim: #64748B;
+  
+  /* 7-Band Color Palette matching FL Studio Parametric EQ 2 */
+  --sonods-band-1: #EC4899; /* Pink (Sub / Low Cut) */
+  --sonods-band-2: #F97316; /* Orange (Bass / Low Shelf) */
+  --sonods-band-3: #EAB308; /* Yellow (Low Mid) */
+  --sonods-band-4: #84CC16; /* Lime Green (Mid) */
+  --sonods-band-5: #10B981; /* Emerald (High Mid) */
+  --sonods-band-6: #06B6D4; /* Cyan (Presence) */
+  --sonods-band-7: #8B5CF6; /* Purple (Treble / High Cut) */
 
-  /* Spectrum Analyzer Overlay */
-  --sonods-color-pre-fill: rgba(14, 165, 233, 0.08);
-  --sonods-color-pre-stroke: rgba(14, 165, 233, 0.25);
-  --sonods-color-post-fill: rgba(132, 204, 22, 0.10);
-  --sonods-color-post-stroke: rgba(101, 163, 13, 0.35);
-
-  /* Status Dots */
-  --sonods-color-status-green: #22C55E;
-  --sonods-color-status-amber: #F59E0B;
-  --sonods-color-status-red: #EF4444;
-
-  /* Typography Colors */
-  --sonods-color-text-main: #18181B;
-  --sonods-color-text-muted: #52525B;
-  --sonods-color-text-dim: #71717A;
-  --sonods-color-border: #E4E4E7;
-  --sonods-color-chassis-border: #18181B;
-
-  /* Radii */
-  --sonods-radius-chassis: 28px;
-  --sonods-radius-pill: 50%;
-  --sonods-radius-card: 10px;
-  --sonods-radius-sm: 6px;
-  --sonods-radius-xs: 4px;
-
-  /* Typography Stacks */
-  --sonods-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  --sonods-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-
-  /* Clean Shadows - No Neon Glow */
-  --sonods-shadow-chassis: 0 20px 45px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
-  --sonods-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.05);
-  --sonods-shadow-menu: 0 12px 28px rgba(0, 0, 0, 0.12);
-
-  /* Transitions */
-  --sonods-transition-fast: 0.12s ease;
-  --sonods-transition-smooth: 0.2s ease;
+  /* Knob Colors */
+  --sonods-knob-green: #84CC16;
+  --sonods-knob-gold: #EAB308;
+  --sonods-knob-gold-ring: #FACC15;
+  
+  /* Fonts */
+  --sonods-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --sonods-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }

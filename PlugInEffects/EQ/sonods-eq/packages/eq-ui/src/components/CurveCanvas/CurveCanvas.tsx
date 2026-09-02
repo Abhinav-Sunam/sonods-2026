@@ -143,8 +143,6 @@ export const CurveCanvas: React.FC<CurveCanvasProps> = ({
           selectedBandIndex,
           hoveredBandIndex,
           ghostCurves,
-          curveColor: '#18181B',
-          handleColor: '#84CC16',
         });
       }
 
