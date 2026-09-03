@@ -144,14 +144,14 @@ pub fn low_pass_section(freq_hz: f64, sample_rate: f64, q: f64) -> BiquadCoeffs 
 }
 
 /// Butterworth Q values for an N-th order cascaded filter (N 2nd-order sections)
-pub fn butterworth_q_values(num_sections: usize) -> Vec<f64> {
-    let n = num_sections as f64;
-    (1..=num_sections)
-        .map(|k| {
-            let angle = (2.0 * k as f64 - 1.0) * PI / (4.0 * n);
-            1.0 / (2.0 * angle.cos())
-        })
-        .collect()
+pub fn butterworth_q_values(num_sections: usize) -> &'static [f64] {
+    match num_sections {
+        1 => &[0.7071067811865476],
+        2 => &[0.541196100146197, 1.3065629648763765],
+        3 => &[0.5176380902050415, 0.7071067811865476, 1.9318516525781364],
+        4 => &[0.5097955791041591, 0.6013448869350453, 0.8999761750050858, 2.5629154477415055],
+        _ => &[0.7071067811865476],
+    }
 }
 
 /// Cascaded filter chain for steep cut filters
@@ -171,8 +171,8 @@ impl FilterChain {
         let num_sec = slope.num_sections();
         let qs = butterworth_q_values(num_sec);
         let sections = qs
-            .into_iter()
-            .map(|q| Biquad::new(high_pass_section(freq_hz, sample_rate, q)))
+            .iter()
+            .map(|&q| Biquad::new(high_pass_section(freq_hz, sample_rate, q)))
             .collect();
         Self { sections }
     }
@@ -181,8 +181,8 @@ impl FilterChain {
         let num_sec = slope.num_sections();
         let qs = butterworth_q_values(num_sec);
         let sections = qs
-            .into_iter()
-            .map(|q| Biquad::new(low_pass_section(freq_hz, sample_rate, q)))
+            .iter()
+            .map(|&q| Biquad::new(low_pass_section(freq_hz, sample_rate, q)))
             .collect();
         Self { sections }
     }
@@ -192,11 +192,11 @@ impl FilterChain {
         let qs = butterworth_q_values(num_sec);
         if self.sections.len() != num_sec {
             self.sections = qs
-                .into_iter()
-                .map(|q| Biquad::new(high_pass_section(freq_hz, sample_rate, q)))
+                .iter()
+                .map(|&q| Biquad::new(high_pass_section(freq_hz, sample_rate, q)))
                 .collect();
         } else {
-            for (sec, q) in self.sections.iter_mut().zip(qs) {
+            for (sec, &q) in self.sections.iter_mut().zip(qs) {
                 sec.set_coeffs(high_pass_section(freq_hz, sample_rate, q));
             }
         }
@@ -207,11 +207,11 @@ impl FilterChain {
         let qs = butterworth_q_values(num_sec);
         if self.sections.len() != num_sec {
             self.sections = qs
-                .into_iter()
-                .map(|q| Biquad::new(low_pass_section(freq_hz, sample_rate, q)))
+                .iter()
+                .map(|&q| Biquad::new(low_pass_section(freq_hz, sample_rate, q)))
                 .collect();
         } else {
-            for (sec, q) in self.sections.iter_mut().zip(qs) {
+            for (sec, &q) in self.sections.iter_mut().zip(qs) {
                 sec.set_coeffs(low_pass_section(freq_hz, sample_rate, q));
             }
         }

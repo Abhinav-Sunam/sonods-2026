@@ -5,7 +5,7 @@ import { SonodsCompressorPlugin } from '@sonods/comp-ui';
 export const App: React.FC = () => {
   const [node, setNode] = useState<SonodsCompressorNode | null>(null);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [signalType, setSignalType] = useState<string>('file');
+  const [signalType, setSignalType] = useState<string>('drums');
   const [isBypassed, setIsBypassed] = useState<boolean>(false);
   const [fileName, setFileName] = useState<string>('');
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
@@ -23,12 +23,10 @@ export const App: React.FC = () => {
     audioCtxRef.current = ctx;
 
     const compNode = new SonodsCompressorNode(ctx);
-    compNode.whenReady().then(() => {
-      setNode(compNode);
-    });
+    setNode(compNode);
 
     const masterGain = ctx.createGain();
-    masterGain.gain.value = 0.5;
+    masterGain.gain.value = 1.0;
     gainRef.current = masterGain;
 
     compNode.outputNode.connect(masterGain);
@@ -44,6 +42,10 @@ export const App: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file || !audioCtxRef.current) return;
 
+    if (audioCtxRef.current.state === 'suspended') {
+      await audioCtxRef.current.resume();
+    }
+
     setFileName(file.name);
     setIsDecoding(true);
     setSignalType('file');
@@ -57,22 +59,31 @@ export const App: React.FC = () => {
       setFileName('Error decoding file');
     } finally {
       setIsDecoding(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
-  const startSignal = () => {
+  const startSignal = async () => {
     if (!audioCtxRef.current || !node) return;
     const ctx = audioCtxRef.current;
     if (ctx.state === 'suspended') {
-      ctx.resume();
+      await ctx.resume();
     }
 
     stopSignal();
 
     if (signalType === 'file') {
-      if (!audioBuffer) return;
+      if (!audioBuffer) {
+        if (fileInputRef.current) {
+          fileInputRef.current.click();
+        }
+        return;
+      }
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
+      source.loop = true;
       source.connect(node.inputNode);
       source.start();
       source.onended = () => {
@@ -81,36 +92,40 @@ export const App: React.FC = () => {
       sourceRef.current = source;
     } else if (signalType === 'drums') {
       let step = 0;
-      const bpm = 124;
+      const bpm = 126;
+      const intervalMs = (60 / bpm / 4) * 1000;
+
+      // Play initial kick immediately
+      playDrumStep(ctx, node.inputNode, 0);
+      step = 1;
+
+      drumIntervalRef.current = window.setInterval(() => {
+        playDrumStep(ctx, node.inputNode, step);
+        step = (step + 1) % 16;
+      }, intervalMs);
+    } else if (signalType === 'bass') {
+      let step = 0;
+      const bpm = 120;
       const intervalMs = (60 / bpm / 4) * 1000;
 
       drumIntervalRef.current = window.setInterval(() => {
         const now = ctx.currentTime;
-        if (step % 8 === 0) {
-          const osc = ctx.createOscillator();
-          const g = ctx.createGain();
-          osc.frequency.setValueAtTime(140, now);
-          osc.frequency.exponentialRampToValueAtTime(38, now + 0.12);
-          g.gain.setValueAtTime(0.9, now);
-          g.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
-          osc.connect(g);
-          g.connect(node.inputNode);
-          osc.start(now);
-          osc.stop(now + 0.25);
-        }
-        if (step % 8 === 4) {
-          const osc = ctx.createOscillator();
-          const g = ctx.createGain();
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(220, now);
-          osc.frequency.exponentialRampToValueAtTime(90, now + 0.1);
-          g.gain.setValueAtTime(0.7, now);
-          g.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-          osc.connect(g);
-          g.connect(node.inputNode);
-          osc.start(now);
-          osc.stop(now + 0.18);
-        }
+        const freqs = [55, 55, 65.4, 55, 82.4, 73.4, 55, 98];
+        const freq = freqs[step % freqs.length];
+
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, now);
+
+        g.gain.setValueAtTime(0.7, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+        osc.connect(g);
+        g.connect(node.inputNode);
+        osc.start(now);
+        osc.stop(now + 0.25);
+
         step = (step + 1) % 16;
       }, intervalMs);
     } else if (signalType === 'sine440') {
@@ -123,6 +138,50 @@ export const App: React.FC = () => {
     }
 
     setIsPlaying(true);
+  };
+
+  const playDrumStep = (ctx: AudioContext, dest: AudioNode, step: number) => {
+    const now = ctx.currentTime;
+    // Kick on 0, 4, 8, 12 (4-on-the-floor)
+    if (step % 4 === 0) {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.frequency.setValueAtTime(150, now);
+      osc.frequency.exponentialRampToValueAtTime(42, now + 0.14);
+      g.gain.setValueAtTime(0.95, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc.connect(g);
+      g.connect(dest);
+      osc.start(now);
+      osc.stop(now + 0.3);
+    }
+    // Snare on 4, 12
+    if (step % 8 === 4) {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(240, now);
+      osc.frequency.exponentialRampToValueAtTime(110, now + 0.12);
+      g.gain.setValueAtTime(0.75, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      osc.connect(g);
+      g.connect(dest);
+      osc.start(now);
+      osc.stop(now + 0.22);
+    }
+    // Hi-hats on offbeats (2, 6, 10, 14)
+    if (step % 2 === 1) {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(8000, now);
+      g.gain.setValueAtTime(0.2, now);
+      g.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+      osc.connect(g);
+      g.connect(dest);
+      osc.start(now);
+      osc.stop(now + 0.06);
+    }
   };
 
   const stopSignal = () => {
@@ -196,11 +255,14 @@ export const App: React.FC = () => {
                 padding: '6px 10px',
                 fontSize: '12px',
                 fontWeight: 600,
+                outline: 'none',
+                cursor: 'pointer',
               }}
             >
-              <option value="file">🎵 Upload Song</option>
-              <option value="drums">124 BPM Drum Groove (Transients)</option>
-              <option value="sine440">440 Hz Sine Wave</option>
+              <option value="drums">🥁 126 BPM Drum Bus (Transients)</option>
+              <option value="bass">🎸 120 BPM Bass Groove</option>
+              <option value="sine440">🔊 440 Hz Test Sine</option>
+              <option value="file">🎵 Custom Audio File</option>
             </select>
 
             <button
@@ -225,7 +287,23 @@ export const App: React.FC = () => {
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: '#71717A' }}>Vol:</span>
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.05"
+                defaultValue="1"
+                onChange={(e) => {
+                  if (gainRef.current) {
+                    gainRef.current.gain.value = parseFloat(e.target.value);
+                  }
+                }}
+                style={{ width: '80px', accentColor: '#22c55e', cursor: 'pointer' }}
+              />
+            </div>
             <button
               onClick={handleBypassToggle}
               style={{

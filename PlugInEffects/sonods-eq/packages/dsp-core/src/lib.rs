@@ -67,6 +67,36 @@ pub extern "C" fn set_band(
 }
 
 #[no_mangle]
+pub extern "C" fn snap_band(
+    ptr: *mut EqEngine,
+    index: usize,
+    shape_val: u32,
+    freq: f64,
+    gain: f64,
+    q: f64,
+    enabled_val: u32,
+) {
+    if let Some(engine) = unsafe { ptr.as_mut() } {
+        let shape = match shape_val {
+            0 => Shape::Bell,
+            1 => Shape::LowShelf,
+            2 => Shape::HighShelf,
+            3 => Shape::LowCut,
+            4 => Shape::HighCut,
+            _ => Shape::Bell,
+        };
+        engine.snap_band(index, shape, freq, gain, q, enabled_val != 0);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn clear_bands(ptr: *mut EqEngine) {
+    if let Some(engine) = unsafe { ptr.as_mut() } {
+        engine.clear_bands();
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn remove_band(ptr: *mut EqEngine, index: usize) {
     if let Some(engine) = unsafe { ptr.as_mut() } {
         engine.remove_band(index);

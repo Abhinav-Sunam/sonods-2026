@@ -6,20 +6,22 @@ export interface PressKnobProps {
   max?: number;
   step?: number;
   defaultValue?: number;
-  size?: number; // default 64px
+  size?: number; // default 56px
   label: string;
   unit?: string;
   displayFormatter?: (val: number) => string;
   onChange: (val: number) => void;
+  accentColor?: string;
 }
 
 /**
- * PressKnob Component per Task 4.1.
+ * PressKnob Component — Clean Light Studio Rotary Dial
  *
- * Distinctive aesthetic from the reference doodle:
- * - Flat, solid amber/gold filled circle (#F59E0B)
- * - Single dark-red pointer indicator (#991B1B) rotating with value
- * - Clean tactile pointer drag, double-click reset, arrow nudge, and hover readout
+ * Matches the SonoDS Light Studio aesthetic (consistent with Saturator & EQ):
+ * - Circular SVG track with active progress arc
+ * - Precision metallic rotary body with subtle radial gradient and bevel
+ * - Crisp colored indicator pip
+ * - Smooth drag, double-click reset, mouse wheel, and arrow key nudge
  */
 export const PressKnob: React.FC<PressKnobProps> = ({
   value,
@@ -27,20 +29,28 @@ export const PressKnob: React.FC<PressKnobProps> = ({
   max = 1,
   step = 0.01,
   defaultValue = 0,
-  size = 64,
+  size = 56,
   label,
   unit = '',
   displayFormatter,
   onChange,
+  accentColor = '#06B6D4',
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const dragStartY = useRef(0);
   const dragStartValue = useRef(0);
 
-  // Map value to angle (-135deg to +135deg => 270deg total range)
+  // Map value to angle (-135deg to +135deg => 270deg total sweep)
   const normalized = Math.max(0, Math.min(1, (value - min) / (max - min)));
   const angle = -135 + normalized * 270;
+
+  // Arc calculation for SVG progress
+  const strokeWidth = 4;
+  const radius = (size - strokeWidth) / 2 - 2;
+  const circumference = 2 * Math.PI * radius;
+  const arcLength = circumference * (270 / 360);
+  const strokeDashoffset = arcLength * (1 - normalized);
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -58,7 +68,7 @@ export const PressKnob: React.FC<PressKnobProps> = ({
       if (!isDragging) return;
       const deltaY = dragStartY.current - e.clientY; // Upward increases value
       const range = max - min;
-      const sensitivity = 150; // pixels to traverse full range
+      const sensitivity = 160; // pixels to traverse full range
       const stepVal = e.shiftKey ? step * 0.1 : step;
       let nextVal = dragStartValue.current + (deltaY / sensitivity) * range;
 
@@ -83,6 +93,16 @@ export const PressKnob: React.FC<PressKnobProps> = ({
     onChange(defaultValue);
   }, [defaultValue, onChange]);
 
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+      const delta = -Math.sign(e.deltaY) * (e.shiftKey ? step * 0.1 : step);
+      const nextVal = Math.max(min, Math.min(max, value + delta));
+      onChange(Number(nextVal.toFixed(4)));
+    },
+    [max, min, onChange, step, value]
+  );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       let delta = 0;
@@ -102,7 +122,8 @@ export const PressKnob: React.FC<PressKnobProps> = ({
     ? displayFormatter(value)
     : `${Number(value.toFixed(2))}${unit}`;
 
-  const knobRadius = (size - 6) / 2;
+  const dialBodySize = size - 14;
+  const innerRingSize = dialBodySize - 10;
 
   return (
     <div
@@ -110,14 +131,14 @@ export const PressKnob: React.FC<PressKnobProps> = ({
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '6px',
+        gap: '4px',
         userSelect: 'none',
-        fontFamily: 'var(--comp-font-family, -apple-system, sans-serif)',
+        fontFamily: 'var(--comp-font-family, -apple-system, BlinkMacSystemFont, sans-serif)',
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Knob Body */}
+      {/* Knob Body with SVG Arc and Rotary Center */}
       <div
         tabIndex={0}
         onPointerDown={handlePointerDown}
@@ -125,11 +146,15 @@ export const PressKnob: React.FC<PressKnobProps> = ({
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onDoubleClick={handleDoubleClick}
+        onWheel={handleWheel}
         onKeyDown={handleKeyDown}
         style={{
           width: `${size}px`,
           height: `${size}px`,
           position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           cursor: isDragging ? 'grabbing' : 'grab',
           outline: 'none',
         }}
@@ -138,65 +163,105 @@ export const PressKnob: React.FC<PressKnobProps> = ({
           width={size}
           height={size}
           viewBox={`0 0 ${size} ${size}`}
-          style={{ overflow: 'visible' }}
+          style={{ transform: 'rotate(135deg)', overflow: 'visible' }}
         >
-          {/* Subtle outer track ring */}
+          <defs>
+            <linearGradient id={`compKnobGrad-${label}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#06B6D4" />
+              <stop offset="100%" stopColor="#0284C7" />
+            </linearGradient>
+          </defs>
+
+          {/* Background Track Arc (subtle light gray) */}
           <circle
             cx={size / 2}
             cy={size / 2}
-            r={knobRadius + 2}
+            r={radius}
             fill="none"
-            stroke="#E4E4E7"
-            strokeWidth="1.5"
+            stroke="rgba(0, 0, 0, 0.08)"
+            strokeWidth={strokeWidth}
+            strokeDasharray={`${arcLength} ${circumference}`}
+            strokeLinecap="round"
           />
 
-          {/* Solid Flat Amber/Gold Circle body from reference doodle */}
+          {/* Active Progress Arc (cyan/teal studio accent) */}
           <circle
             cx={size / 2}
             cy={size / 2}
-            r={knobRadius}
-            fill="#F59E0B"
-            stroke="#18181B"
-            strokeWidth="2.5"
+            r={radius}
+            fill="none"
+            stroke={`url(#compKnobGrad-${label})`}
+            strokeWidth={strokeWidth + 0.5}
+            strokeDasharray={`${arcLength} ${circumference}`}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
             style={{
-              filter: isHovered || isDragging ? 'drop-shadow(0 4px 10px rgba(245, 158, 11, 0.4))' : 'drop-shadow(0 2px 5px rgba(0, 0, 0, 0.12))',
-              transition: 'filter 0.15s ease',
+              transition: isDragging ? 'none' : 'stroke-dashoffset 0.1s ease',
+              filter: isDragging || isHovered ? 'drop-shadow(0 0 3px rgba(6, 182, 212, 0.5))' : 'none',
             }}
           />
-
-          {/* Rotating Pointer Container */}
-          <g transform={`translate(${size / 2}, ${size / 2}) rotate(${angle})`}>
-            {/* Dark-red pointer dot / indicator line per reference sketch */}
-            <circle
-              cx="0"
-              cy={-knobRadius * 0.55}
-              r={knobRadius * 0.22}
-              fill="#991B1B"
-              stroke="#18181B"
-              strokeWidth="1.2"
-            />
-            {/* Fine line tip toward edge */}
-            <line
-              x1="0"
-              y1={-knobRadius * 0.55}
-              x2="0"
-              y2={-knobRadius * 0.85}
-              stroke="#991B1B"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            />
-          </g>
         </svg>
+
+        {/* Rotary Dial Center Body — Light Studio Brushed Aluminum */}
+        <div
+          style={{
+            position: 'absolute',
+            width: `${dialBodySize}px`,
+            height: `${dialBodySize}px`,
+            borderRadius: '50%',
+            background: 'linear-gradient(145deg, #FFFFFF, #EBEBEF)',
+            boxShadow: isDragging || isHovered
+              ? '0 4px 10px rgba(0,0,0,0.14), inset 0 1px 2px rgba(255,255,255,0.95)'
+              : '0 2px 6px rgba(0,0,0,0.08), inset 0 1px 2px rgba(255,255,255,0.95)',
+            border: '1.5px solid #D4D4D8',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transform: `rotate(${angle}deg)`,
+            transition: isDragging ? 'none' : 'transform 0.08s ease, box-shadow 0.15s ease',
+          }}
+        >
+          {/* Inner concentric recessed face */}
+          <div
+            style={{
+              width: `${innerRingSize}px`,
+              height: `${innerRingSize}px`,
+              borderRadius: '50%',
+              background: 'radial-gradient(circle, #FAFAFA 0%, #E4E4E7 100%)',
+              border: '1px solid #E4E4E7',
+              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.06)',
+              position: 'relative',
+            }}
+          >
+            {/* Precision Indicator Pip */}
+            <div
+              style={{
+                position: 'absolute',
+                top: '2px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: '3px',
+                height: `${Math.max(5, Math.floor(innerRingSize * 0.3))}px`,
+                borderRadius: '2px',
+                backgroundColor: isDragging ? '#18181B' : accentColor,
+                boxShadow: isDragging
+                  ? '0 0 3px rgba(24, 24, 27, 0.4)'
+                  : `0 0 5px ${accentColor}`,
+                transition: 'background-color 0.15s ease',
+              }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Label and Value */}
-      <div style={{ textAlign: 'center', minHeight: '30px' }}>
+      <div style={{ textAlign: 'center', minHeight: '28px', marginTop: '2px' }}>
         <div
           style={{
-            fontSize: '11px',
-            fontWeight: 700,
+            fontSize: '10px',
+            fontWeight: 800,
             textTransform: 'uppercase',
-            letterSpacing: '0.5px',
+            letterSpacing: '0.04em',
             color: '#18181B',
           }}
         >
@@ -205,9 +270,10 @@ export const PressKnob: React.FC<PressKnobProps> = ({
         <div
           style={{
             fontSize: '10px',
-            fontWeight: 600,
-            fontFamily: 'var(--comp-font-mono, monospace)',
-            color: isDragging || isHovered ? '#B45309' : '#71717A',
+            fontWeight: 700,
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            fontVariantNumeric: 'tabular-nums',
+            color: isDragging || isHovered ? '#0891B2' : '#71717A',
             transition: 'color 0.15s ease',
           }}
         >

@@ -88,6 +88,28 @@ impl Band {
         self.bypass_fade.set_target(if enabled { 1.0 } else { 0.0 });
     }
 
+    pub fn snap_to(
+        &mut self,
+        shape: Shape,
+        freq: f64,
+        gain: f64,
+        q: f64,
+        enabled: bool,
+        sample_rate: f64,
+    ) {
+        self.shape = shape;
+        self.freq.snap_to(freq.clamp(10.0, sample_rate * 0.499));
+        self.gain.snap_to(gain.clamp(-30.0, 30.0));
+        self.q.snap_to(q.clamp(0.05, 40.0));
+        self.bypass_fade.snap_to(if enabled { 1.0 } else { 0.0 });
+        self.enabled = enabled;
+        self.dynamic_gain_offset = 0.0;
+        self.env_detector = 0.0;
+        self.biquad_l.reset_state();
+        self.biquad_r.reset_state();
+        self.recompute_coeffs(sample_rate);
+    }
+
     pub fn update_dynamic_coefficients(&mut self, sample_rate: f64) {
         // Program-dependent attack/release: faster for high frequencies, slower for low frequencies
         let f = self.freq.target.clamp(20.0, 20000.0);
@@ -99,22 +121,36 @@ impl Band {
     }
 
     pub fn tick_smoothing(&mut self, sample_rate: f64) {
-        self.freq.tick();
-        self.gain.tick();
-        self.q.tick();
-        self.bypass_fade.tick();
-
-        let current_freq = self.freq.current;
-        let current_gain = self.gain.current + self.dynamic_gain_offset;
-        let current_q = self.q.current;
-
-        let needs_recompute = (current_freq - self.last_freq).abs() > 1e-3
-            || (current_gain - self.last_gain).abs() > 1e-3
-            || (current_q - self.last_q).abs() > 1e-3
+        let is_moving = self.freq.is_smoothing()
+            || self.gain.is_smoothing()
+            || self.q.is_smoothing()
+            || self.bypass_fade.is_smoothing()
             || self.shape != self.last_shape
             || self.cut_slope != self.last_slope;
 
-        if needs_recompute {
+        if is_moving {
+            self.freq.tick();
+            self.gain.tick();
+            self.q.tick();
+            self.bypass_fade.tick();
+
+            let current_freq = self.freq.current;
+            let current_gain = self.gain.current + self.dynamic_gain_offset;
+            let current_q = self.q.current;
+
+            self.recompute_coeffs_with_values(
+                current_freq,
+                current_gain,
+                current_q,
+                self.shape,
+                self.cut_slope,
+                sample_rate,
+            );
+        } else if (self.dynamic_gain_offset - (self.last_gain - self.gain.current)).abs() > 1e-3 {
+            let current_freq = self.freq.current;
+            let current_gain = self.gain.current + self.dynamic_gain_offset;
+            let current_q = self.q.current;
+
             self.recompute_coeffs_with_values(
                 current_freq,
                 current_gain,

@@ -186,17 +186,27 @@ class SonodsCompProcessor extends AudioWorkletProcessor {
       output[1].set(outMemF32.subarray(rightHeapOffset, rightHeapOffset + numSamples));
     }
 
-    // Reverse-direction telemetry: read gain reduction in dB and publish
+    // Reverse-direction telemetry: read full telemetry taps from DSP core
     const currentGrDb = this.exports.get_gain_reduction_db(this.enginePtr);
+    const inputDb = this.exports.get_input_level_db ? this.exports.get_input_level_db(this.enginePtr) : -60.0;
+    const detectedDb = this.exports.get_detected_level_db ? this.exports.get_detected_level_db(this.enginePtr) : -60.0;
+    const outputDb = this.exports.get_output_level_db ? this.exports.get_output_level_db(this.enginePtr) : -60.0;
+
     if (this.sabMeterGrDb) {
       this.sabMeterGrDb[0] = currentGrDb;
     }
 
-    // Fallback: postMessage decimated at ~30Hz (every 12 blocks at 128 samples / 48kHz is ~31Hz)
+    // Post real telemetry at ~100Hz for ultra-smooth timeline rendering
     this.meterDecimateCounter++;
-    if (this.meterDecimateCounter >= 12) {
+    if (this.meterDecimateCounter >= 4) {
       this.meterDecimateCounter = 0;
-      this.port.postMessage({ type: 'METER_GR', grDb: currentGrDb });
+      this.port.postMessage({
+        type: 'METER_TELEMETRY',
+        inputDb,
+        detectedDb,
+        outputDb,
+        grDb: currentGrDb,
+      });
     }
 
     return true;

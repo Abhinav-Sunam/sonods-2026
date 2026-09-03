@@ -68,6 +68,8 @@ export interface DspExports {
   set_sample_rate: (ptr: number, sampleRate: number) => void;
   set_phase_mode: (ptr: number, mode: number) => void;
   set_band: (ptr: number, index: number, shape: number, freq: number, gain: number, q: number, enabled: number) => void;
+  snap_band?: (ptr: number, index: number, shape: number, freq: number, gain: number, q: number, enabled: number) => void;
+  clear_bands?: (ptr: number) => void;
   remove_band: (ptr: number, index: number) => void;
   set_band_param: (ptr: number, bandIndex: number, paramId: number, value: number) => void;
   process_block: (ptr: number, leftPtr: number, rightPtr: number, len: number) => void;

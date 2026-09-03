@@ -2,6 +2,7 @@
 import {
   CompressorCharacterType,
   CompressorState,
+  CompressorTelemetryFrame,
   DspExports,
 } from './types.js';
 import { loadDspModule } from './wasmLoader.js';
@@ -30,9 +31,16 @@ export class SonodsCompressorNode {
   private state: CompressorState;
   private listeners: Set<(state: CompressorState) => void> = new Set();
   private grListeners: Set<(grDb: number) => void> = new Set();
+  private telemetryListeners: Set<(frame: CompressorTelemetryFrame) => void> = new Set();
   private readyPromise: Promise<void>;
   private meterPollInterval: number | null = null;
   private currentGrDb = 0.0;
+  private currentTelemetry: CompressorTelemetryFrame = {
+    inputDb: -60.0,
+    detectedDb: -60.0,
+    outputDb: -60.0,
+    grDb: 0.0,
+  };
 
   constructor(audioContext: AudioContext) {
     this.audioContext = audioContext;
@@ -67,6 +75,8 @@ export class SonodsCompressorNode {
     };
 
     this.sharedLayout = createSharedMemoryLayout();
+    // Connect input directly to output initially so audio never drops while worklet loads
+    this.inputNode.connect(this.outputNode);
     this.readyPromise = this.init();
   }
 
@@ -75,60 +85,97 @@ export class SonodsCompressorNode {
   }
 
   private async init(): Promise<void> {
-    const wasmBytes = getWasmBytes();
-    this.dspExports = await loadDspModule(wasmBytes);
-    this.mainEnginePtr = this.dspExports.create_compressor(this.audioContext.sampleRate);
+    try {
+      const wasmBytes = getWasmBytes();
+      this.dspExports = await loadDspModule(wasmBytes);
+      this.mainEnginePtr = this.dspExports.create_compressor(this.audioContext.sampleRate);
 
-    this.applyStateToMainEngine();
+      this.applyStateToMainEngine();
 
-    // Register AudioWorklet processor
-    if (typeof this.audioContext.audioWorklet !== 'undefined') {
-      const blob = new Blob([COMP_WORKLET_PROCESSOR_CODE], { type: 'application/javascript' });
-      const workletUrl = URL.createObjectURL(blob);
-      await this.audioContext.audioWorklet.addModule(workletUrl);
+      // Register AudioWorklet processor
+      if (typeof this.audioContext.audioWorklet !== 'undefined') {
+        const blob = new Blob([COMP_WORKLET_PROCESSOR_CODE], { type: 'application/javascript' });
+        const workletUrl = URL.createObjectURL(blob);
+        await this.audioContext.audioWorklet.addModule(workletUrl);
 
-      this.workletNode = new AudioWorkletNode(this.audioContext, 'sonods-comp-processor', {
-        numberOfInputs: 1,
-        numberOfOutputs: 1,
-        outputChannelCount: [2],
-      });
+        this.workletNode = new AudioWorkletNode(this.audioContext, 'sonods-comp-processor', {
+          numberOfInputs: 1,
+          numberOfOutputs: 1,
+          outputChannelCount: [2],
+        });
 
-      this.workletNode.port.onmessage = (event) => {
-        const data = event.data;
-        if (data.type === 'METER_GR') {
-          this.currentGrDb = data.grDb;
-          this.notifyGrListeners(data.grDb);
-        }
-      };
-
-      this.workletNode.port.postMessage({
-        type: 'INIT',
-        wasmBytes,
-        sampleRate: this.audioContext.sampleRate,
-        sharedBuffer: this.sharedLayout ? this.sharedLayout.buffer : undefined,
-      });
-
-      this.inputNode.connect(this.workletNode);
-      this.workletNode.connect(this.postAnalyser);
-      this.postAnalyser.connect(this.outputNode);
-
-      // Start reverse-direction metering polling if SharedArrayBuffer supported
-      if (this.sharedLayout && this.sharedLayout.meterGrDb) {
-        this.meterPollInterval = window.setInterval(() => {
-          if (this.sharedLayout && this.sharedLayout.meterGrDb) {
-            const gr = this.sharedLayout.meterGrDb[0];
-            if (gr !== this.currentGrDb) {
-              this.currentGrDb = gr;
-              this.notifyGrListeners(gr);
-            }
+        this.workletNode.port.onmessage = (event) => {
+          const data = event.data;
+          if (data.type === 'METER_TELEMETRY') {
+            this.currentGrDb = data.grDb;
+            this.currentTelemetry = {
+              inputDb: data.inputDb,
+              detectedDb: data.detectedDb,
+              outputDb: data.outputDb,
+              grDb: data.grDb,
+            };
+            this.notifyGrListeners(data.grDb);
+            this.notifyTelemetryListeners(this.currentTelemetry);
+          } else if (data.type === 'METER_GR') {
+            this.currentGrDb = data.grDb;
+            this.notifyGrListeners(data.grDb);
           }
-        }, 16); // ~60 Hz
+        };
+
+        this.workletNode.port.postMessage({
+          type: 'INIT',
+          wasmBytes,
+          sampleRate: this.audioContext.sampleRate,
+          sharedBuffer: this.sharedLayout ? this.sharedLayout.buffer : undefined,
+        });
+
+        // Switch from fallback direct bypass to the worklet DSP node
+        try {
+          this.inputNode.disconnect(this.outputNode);
+        } catch {}
+
+        this.inputNode.connect(this.workletNode);
+        this.workletNode.connect(this.postAnalyser);
+        this.postAnalyser.connect(this.outputNode);
+
+        // Send current parameters to worklet
+        this.sendAllParamsToWorklet();
+
+        // Start reverse-direction metering polling if SharedArrayBuffer supported
+        if (this.sharedLayout && this.sharedLayout.meterGrDb) {
+          this.meterPollInterval = window.setInterval(() => {
+            if (this.sharedLayout && this.sharedLayout.meterGrDb) {
+              const gr = this.sharedLayout.meterGrDb[0];
+              if (gr !== this.currentGrDb) {
+                this.currentGrDb = gr;
+                this.notifyGrListeners(gr);
+              }
+            }
+          }, 16); // ~60 Hz
+        }
+      } else {
+        // Direct pass-through if worklet unsupported
+        this.inputNode.connect(this.postAnalyser);
+        this.postAnalyser.connect(this.outputNode);
       }
-    } else {
-      // Direct pass-through if worklet unsupported
-      this.inputNode.connect(this.postAnalyser);
-      this.postAnalyser.connect(this.outputNode);
+    } catch (err) {
+      console.warn('AudioWorklet initialization fallback to bypass:', err);
     }
+  }
+
+  private sendAllParamsToWorklet(): void {
+    this.sendParam(CommandType.SetThreshold, this.state.threshold);
+    this.sendParam(CommandType.SetRatio, this.state.ratio);
+    this.sendParam(CommandType.SetAttack, this.state.attack);
+    this.sendParam(CommandType.SetRelease, this.state.release);
+    this.sendParam(CommandType.SetKnee, this.state.knee);
+    this.sendParam(CommandType.SetLink, this.state.link);
+    this.sendParam(CommandType.SetMix, this.state.mix);
+    this.sendParam(CommandType.SetOutputGain, this.state.outputGain);
+    this.sendParam(CommandType.SetAutoGain, this.state.autoGain);
+    this.sendParam(CommandType.SetSidechainHpf, this.state.sidechainHpf);
+    this.sendParam(CommandType.SetLookahead, this.state.lookahead);
+    this.sendParam(CommandType.SetCharacter, this.getCharacterId(this.state.character));
   }
 
   private applyStateToMainEngine(): void {
@@ -309,6 +356,10 @@ export class SonodsCompressorNode {
     return this.currentGrDb;
   }
 
+  public getTelemetry(): CompressorTelemetryFrame {
+    return this.currentTelemetry;
+  }
+
   public subscribe(listener: (state: CompressorState) => void): () => void {
     this.listeners.add(listener);
     listener(this.getState());
@@ -321,6 +372,12 @@ export class SonodsCompressorNode {
     return () => this.grListeners.delete(listener);
   }
 
+  public subscribeTelemetry(listener: (frame: CompressorTelemetryFrame) => void): () => void {
+    this.telemetryListeners.add(listener);
+    listener(this.currentTelemetry);
+    return () => this.telemetryListeners.delete(listener);
+  }
+
   private notify(): void {
     const st = this.getState();
     for (const l of this.listeners) l(st);
@@ -328,6 +385,10 @@ export class SonodsCompressorNode {
 
   private notifyGrListeners(grDb: number): void {
     for (const l of this.grListeners) l(grDb);
+  }
+
+  private notifyTelemetryListeners(frame: CompressorTelemetryFrame): void {
+    for (const l of this.telemetryListeners) l(frame);
   }
 
   public dispose(): void {

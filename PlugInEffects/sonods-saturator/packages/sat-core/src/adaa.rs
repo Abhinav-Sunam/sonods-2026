@@ -55,22 +55,11 @@ impl AdaaState {
         let delta_12 = x1 - x2;
         let delta_02 = x0 - x2;
 
-        let drive_tanh = if (drive - self.last_drive).abs() > 1e-5 {
-            drive.tanh()
-        } else {
-            self.last_drive_tanh
-        };
+        let drive_tanh = drive.tanh();
 
         let f2_x0 = antideriv2_with_tanh(x0, drive, drive_tanh, character);
-
-        let (f2_x1, f2_x2) = if (drive - self.last_drive).abs() > 1e-5 || character != self.last_char {
-            (
-                antideriv2_with_tanh(x1, drive, drive_tanh, character),
-                antideriv2_with_tanh(x2, drive, drive_tanh, character),
-            )
-        } else {
-            (self.f2_x1, self.f2_x2)
-        };
+        let f2_x1 = antideriv2_with_tanh(x1, drive, drive_tanh, character);
+        let f2_x2 = antideriv2_with_tanh(x2, drive, drive_tanh, character);
 
         let y = if delta_01.abs() >= EPSILON && delta_12.abs() >= EPSILON && delta_02.abs() >= EPSILON {
             let f2_01 = (f2_x0 - f2_x1) / delta_01;
@@ -100,8 +89,8 @@ impl AdaaState {
 
         self.x2 = x1;
         self.x1 = x0;
-        self.f2_x2 = f2_x1;
-        self.f2_x1 = f2_x0;
+        self.f2_x2 = f2_x2;
+        self.f2_x1 = f2_x1;
         self.last_drive = drive;
         self.last_drive_tanh = drive_tanh;
         self.last_char = character;

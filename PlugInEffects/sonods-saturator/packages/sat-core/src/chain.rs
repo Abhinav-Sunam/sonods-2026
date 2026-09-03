@@ -14,9 +14,9 @@ pub fn calculate_auto_gain(drive_norm: f64, character: Character) -> f64 {
     let drive_val = drive_norm.clamp(0.0, 1.0);
 
     match character {
-        Character::Tape => 1.0 / (1.0 + 1.05 * drive_val.powf(0.70)),
-        Character::Tube => 1.0 / (1.0 + 0.95 * drive_val.powf(0.70)),
-        Character::Transformer => 1.0 / (1.0 + 0.90 * drive_val.powf(0.70)),
+        Character::Tape => 1.0 / (1.0 + 0.48 * drive_val.powf(0.85)),
+        Character::Tube => 1.0 / (1.0 + 0.42 * drive_val.powf(0.85)),
+        Character::Transformer => 1.0 / (1.0 + 0.40 * drive_val.powf(0.85)),
     }
 }
 
@@ -32,8 +32,9 @@ pub struct SaturatorChannel {
     pub mix_param: SmoothedParam,
     pub output_param: SmoothedParam,
 
-    // Stage 2: Tone pre-emphasis filter
-    pub tone_filter: Biquad,
+    // Stage 2: Tone pre-emphasis musical tilt filter
+    pub tone_filter_high: Biquad,
+    pub tone_filter_low: Biquad,
     last_tone_db: f64,
 
     // Stage 3: Nonlinear saturators
@@ -60,7 +61,8 @@ impl SaturatorChannel {
             mix_param: SmoothedParam::new(1.0, MIX_SMOOTHING_MS, sample_rate),
             output_param: SmoothedParam::new(0.0, OUTPUT_SMOOTHING_MS, sample_rate),
 
-            tone_filter: Biquad::passthrough(),
+            tone_filter_high: Biquad::passthrough(),
+            tone_filter_low: Biquad::passthrough(),
             last_tone_db: 0.0,
 
             sat_primary: OversampledSaturator::new(),
@@ -74,9 +76,10 @@ impl SaturatorChannel {
     }
 
     pub fn reset(&mut self) {
-        self.tone_filter.reset();
         self.sat_primary.reset();
         self.sat_secondary.reset();
+        self.tone_filter_high.reset();
+        self.tone_filter_low.reset();
         self.tape_head_bump.reset();
         self.hf_rolloff.reset();
         self.dc_blocker.reset();
@@ -104,7 +107,15 @@ impl SaturatorChannel {
     }
 
     fn update_tone_filter(&mut self, tone_db: f64) {
-        self.tone_filter = Biquad::high_shelf(3200.0, tone_db, self.sample_rate);
+        // Musical tilt EQ: pivoting around 1 kHz with complementary low and high shelves
+        // Turning Left (negative dB): warm low-end boost + gentle high rolloff
+        // Turning Right (positive dB): bright high-end presence + subtle low-mid cleanup
+        let high_gain = tone_db * 0.75;
+        let low_gain = -tone_db * 0.65;
+        let new_high = Biquad::high_shelf(2400.0, high_gain, self.sample_rate);
+        let new_low = Biquad::low_shelf(380.0, low_gain, self.sample_rate);
+        self.tone_filter_high.update_coeffs(&new_high);
+        self.tone_filter_low.update_coeffs(&new_low);
         self.last_tone_db = tone_db;
     }
 
@@ -128,15 +139,15 @@ impl SaturatorChannel {
             return input;
         }
 
-        if (tone_val - self.last_tone_db).abs() > 0.05 {
+        if self.tone_param.is_smoothing() || (tone_val - self.last_tone_db).abs() > 1e-4 {
             self.update_tone_filter(tone_val);
         }
 
-        // 1. Input drive mapping (0.0 to 10.0)
-        let curve_drive = drive_val * 10.0;
+        // 1. Progressive musical drive mapping: smooth analog warmth to rich harmonic density
+        let curve_drive = 3.5 * drive_val.powf(1.25);
 
-        // 2. Tone pre-emphasis filter
-        let x_toned = self.tone_filter.process(input);
+        // 2. Tone pre-emphasis musical tilt filter
+        let x_toned = self.tone_filter_low.process(self.tone_filter_high.process(input));
 
         // 3. Oversampled + ADAA Nonlinear Stage with equal-power character crossfade
         let (in_char, in_gain, out_opt) = self.crossfader.tick();
@@ -202,8 +213,10 @@ mod tests {
         let mut silence = vec![0.0f64; 48000];
         chain.process_block(&mut silence);
 
-        assert!(!chain.tone_filter.s1.is_subnormal());
-        assert!(!chain.tone_filter.s2.is_subnormal());
+        assert!(!chain.tone_filter_high.s1.is_subnormal());
+        assert!(!chain.tone_filter_high.s2.is_subnormal());
+        assert!(!chain.tone_filter_low.s1.is_subnormal());
+        assert!(!chain.tone_filter_low.s2.is_subnormal());
         assert!(!chain.dc_blocker.x1.is_subnormal());
         assert!(!chain.dc_blocker.y1.is_subnormal());
         assert!(!chain.sat_primary.adaa.x1.is_subnormal());

@@ -19,6 +19,13 @@ export interface CompressorState {
   sampleRate: number;
 }
 
+export interface CompressorTelemetryFrame {
+  inputDb: number;
+  detectedDb: number;
+  outputDb: number;
+  grDb: number;
+}
+
 export interface DspExports {
   memory: WebAssembly.Memory;
   create_compressor(sample_rate: number): number;
@@ -37,6 +44,10 @@ export interface DspExports {
   set_lookahead(ptr: number, lookahead_s: number): void;
   set_character(ptr: number, char_id: number): void;
   get_gain_reduction_db(ptr: number): number;
+  get_input_level_db(ptr: number): number;
+  get_detected_level_db(ptr: number): number;
+  get_output_level_db(ptr: number): number;
+  get_telemetry_frame(ptr: number, out_ptr: number): void;
   process_block(ptr: number, left_ptr: number, right_ptr: number, len: number): void;
   allocate_f32_buffer(len: number): number;
   deallocate_f32_buffer(ptr: number, len: number): void;

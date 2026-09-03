@@ -117,7 +117,7 @@ impl SaturatorEngine {
 
     /// Compute transfer curve mapping for the visualizer.
     pub fn get_transfer_curve(&self, in_grid: &[f64], out_grid: &mut [f64]) {
-        let drive = self.left.drive_param.get_current() * 10.0;
+        let drive = 3.5 * self.left.drive_param.get_current().powf(1.25);
         let charac = self.left.crossfader.current_char;
         let len = in_grid.len().min(out_grid.len());
 

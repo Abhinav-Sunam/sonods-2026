@@ -63,6 +63,29 @@ class SonodsEqProcessor extends AudioWorkletProcessor {
             data.enabled ? 1 : 0
           );
         }
+      } else if (data.type === 'CLEAR_BANDS') {
+        if (this.exports && this.enginePtr) {
+          if (this.exports.clear_bands) {
+            this.exports.clear_bands(this.enginePtr);
+          }
+          if (this.lastSabParams) {
+            this.lastSabParams.fill(-999.0);
+          }
+        }
+      } else if (data.type === 'SNAP_BAND') {
+        if (this.exports && this.enginePtr) {
+          if (this.exports.snap_band) {
+            this.exports.snap_band(
+              this.enginePtr,
+              data.index,
+              data.shape,
+              data.freq,
+              data.gain,
+              data.q,
+              data.enabled ? 1 : 0
+            );
+          }
+        }
       } else if (data.type === 'REMOVE_BAND') {
         if (this.exports && this.enginePtr) {
           this.exports.remove_band(this.enginePtr, data.index);
@@ -134,32 +157,19 @@ class SonodsEqProcessor extends AudioWorkletProcessor {
       Atomics.store(this.sabCmds, 1, readIdx);
     }
 
-    // Read parameters from SharedArrayBuffer if active
-    if (this.sabParams) {
-      for (let b = 0; b < 12; b++) {
-        const base = b * 10;
-        const freq = this.sabParams[base + 0];
-        if (freq > 0) {
-          const gain = this.sabParams[base + 1];
-          const q = this.sabParams[base + 2];
-          const shape = this.sabParams[base + 3];
-          const slope = this.sabParams[base + 4];
-          const enabled = this.sabParams[base + 5];
-          const mode = this.sabParams[base + 6];
-          const dynEnabled = this.sabParams[base + 7];
-          const dynThresh = this.sabParams[base + 8];
-          const dynRange = this.sabParams[base + 9];
-
-          this.exports.set_band_param(this.enginePtr, b, 0, freq);
-          this.exports.set_band_param(this.enginePtr, b, 1, gain);
-          this.exports.set_band_param(this.enginePtr, b, 2, q);
-          this.exports.set_band_param(this.enginePtr, b, 3, shape);
-          this.exports.set_band_param(this.enginePtr, b, 4, slope);
-          this.exports.set_band_param(this.enginePtr, b, 5, enabled);
-          this.exports.set_band_param(this.enginePtr, b, 6, mode);
-          this.exports.set_band_param(this.enginePtr, b, 7, dynEnabled);
-          this.exports.set_band_param(this.enginePtr, b, 8, dynThresh);
-          this.exports.set_band_param(this.enginePtr, b, 9, dynRange);
+    // Read parameters from SharedArrayBuffer if active (only dispatch when changed)
+    if (this.sabParams && this.exports && this.enginePtr) {
+      if (!this.lastSabParams) {
+        this.lastSabParams = new Float64Array(120);
+        this.lastSabParams.fill(-999.0);
+      }
+      for (let i = 0; i < 120; i++) {
+        const val = this.sabParams[i];
+        if (val !== this.lastSabParams[i]) {
+          this.lastSabParams[i] = val;
+          const bandIdx = (i / 10) | 0;
+          const paramId = i % 10;
+          this.exports.set_band_param(this.enginePtr, bandIdx, paramId, val);
         }
       }
     }

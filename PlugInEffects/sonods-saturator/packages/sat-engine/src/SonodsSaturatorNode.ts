@@ -101,7 +101,7 @@ export class SonodsSaturatorNode {
       // Send initial configuration to worklet
       this.workletNode.port.postMessage({
         type: 'INIT',
-        wasmBytes,
+        wasmBytes: wasmBytes.buffer,
         sampleRate: this.audioContext.sampleRate,
         sharedBuffer: this.sharedLayout ? this.sharedLayout.buffer : null,
       });
@@ -118,6 +118,14 @@ export class SonodsSaturatorNode {
       // Direct pass-through if running in an environment without AudioWorklet
       this.inputNode.connect(this.outputNode);
     }
+  }
+
+  public connect(destination: AudioNode): AudioNode {
+    return this.outputNode.connect(destination);
+  }
+
+  public disconnect(): void {
+    this.outputNode.disconnect();
   }
 
   private getCharacterId(char: CharacterType): number {

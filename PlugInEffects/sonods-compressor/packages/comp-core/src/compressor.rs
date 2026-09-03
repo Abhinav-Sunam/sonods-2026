@@ -61,7 +61,13 @@ pub struct CompressorCore {
     release_s: f64,
     lookahead_s: f64,
 
-    // Telemetry / metering
+    // Telemetry / metering (real signal taps per §1.7)
+    last_input_db_l: f64,
+    last_input_db_r: f64,
+    last_detected_db_l: f64,
+    last_detected_db_r: f64,
+    last_output_db_l: f64,
+    last_output_db_r: f64,
     last_gr_db_l: f64,
     last_gr_db_r: f64,
 }
@@ -102,6 +108,12 @@ impl CompressorCore {
             release_s: default_release,
             lookahead_s: 0.0,
 
+            last_input_db_l: -60.0,
+            last_input_db_r: -60.0,
+            last_detected_db_l: -60.0,
+            last_detected_db_r: -60.0,
+            last_output_db_l: -60.0,
+            last_output_db_r: -60.0,
             last_gr_db_l: 0.0,
             last_gr_db_r: 0.0,
         }
@@ -208,6 +220,21 @@ impl CompressorCore {
         self.last_gr_db_l.max(self.last_gr_db_r)
     }
 
+    #[inline]
+    pub fn current_input_level_db(&self) -> f64 {
+        self.last_input_db_l.max(self.last_input_db_r)
+    }
+
+    #[inline]
+    pub fn current_detected_level_db(&self) -> f64 {
+        self.last_detected_db_l.max(self.last_detected_db_r)
+    }
+
+    #[inline]
+    pub fn current_output_level_db(&self) -> f64 {
+        self.last_output_db_l.max(self.last_output_db_r)
+    }
+
     pub fn reset(&mut self) {
         self.sidechain_l.reset();
         self.sidechain_r.reset();
@@ -219,6 +246,12 @@ impl CompressorCore {
         self.lookahead_r.reset();
         self.dry_delay_l.reset();
         self.dry_delay_r.reset();
+        self.last_input_db_l = -60.0;
+        self.last_input_db_r = -60.0;
+        self.last_detected_db_l = -60.0;
+        self.last_detected_db_r = -60.0;
+        self.last_output_db_l = -60.0;
+        self.last_output_db_r = -60.0;
         self.last_gr_db_l = 0.0;
         self.last_gr_db_r = 0.0;
     }
@@ -239,32 +272,40 @@ impl CompressorCore {
         self.sidechain_l.set_cutoff(sc_hpf);
         self.sidechain_r.set_cutoff(sc_hpf);
 
-        // 1. Time-aligned dry signal for parallel mix
+        // 1. Input Level in dB (Pre-compression tap)
+        let in_max = in_l.abs().max(in_r.abs());
+        let in_db = if in_max > 1e-6 { 20.0 * in_max.log10() } else { -60.0 };
+        self.last_input_db_l = in_db;
+        self.last_input_db_r = in_db;
+
+        // 2. Time-aligned dry signal for parallel mix
         let dry_l = self.dry_delay_l.process_sample(in_l);
         let dry_r = self.dry_delay_r.process_sample(in_r);
 
-        // 2. Sidechain filtering (detector branch ONLY, never touches audio)
+        // 3. Sidechain filtering (detector branch ONLY, never touches audio)
         let sc_l = self.sidechain_l.process_sample(in_l);
         let sc_r = self.sidechain_r.process_sample(in_r);
 
-        // 3. Level detection (blended Peak/RMS in linear domain -> dB)
+        // 4. Level detection (blended Peak/RMS in linear domain -> dB)
         let level_l_db = self.detector_l.process_sample_db(sc_l);
         let level_r_db = self.detector_r.process_sample_db(sc_r);
+        self.last_detected_db_l = level_l_db;
+        self.last_detected_db_r = level_r_db;
 
-        // 4. Static gain computer (Giannoulis soft-knee quadratic curve)
+        // 5. Static gain computer (Giannoulis soft-knee quadratic curve)
         let raw_gr_l = gain_reduction_db(level_l_db, thresh, ratio, knee);
         let raw_gr_r = gain_reduction_db(level_r_db, thresh, ratio, knee);
 
-        // 5. Decoupled envelope smoothing (applied to GR dB, not level)
+        // 6. Decoupled envelope smoothing (applied to GR dB, not level)
         let smoothed_gr_l = self.smoother_l.process_sample(raw_gr_l);
         let smoothed_gr_r = self.smoother_r.process_sample(raw_gr_r);
 
-        // 6. Stereo linking
+        // 7. Stereo linking
         let (final_gr_l, final_gr_r) = apply_stereo_linking(smoothed_gr_l, smoothed_gr_r, link);
         self.last_gr_db_l = final_gr_l;
         self.last_gr_db_r = final_gr_r;
 
-        // 7. Lookahead delay on main wet audio path
+        // 8. Lookahead delay on main wet audio path
         let delayed_audio_l = self.lookahead_l.process_sample(in_l);
         let delayed_audio_r = self.lookahead_r.process_sample(in_r);
 
@@ -275,8 +316,7 @@ impl CompressorCore {
         let compressed_l = delayed_audio_l * gain_mult_l;
         let compressed_r = delayed_audio_r * gain_mult_r;
 
-        // 8. Auto makeup gain (closed-form static estimate) + manual output gain
-        // Heuristic formula from Task 1.9:
+        // 9. Auto makeup gain (closed-form static estimate) + manual output gain
         let nominal_reduction_at_0db = gain_reduction_db(0.0, thresh, ratio, knee);
         let auto_makeup_db = auto_gain_amt * nominal_reduction_at_0db * 0.5;
         let total_gain_db = out_gain_db + auto_makeup_db;
@@ -285,21 +325,75 @@ impl CompressorCore {
         let wet_l = compressed_l * output_gain_mult;
         let wet_r = compressed_r * output_gain_mult;
 
-        // 9. Dry/Wet mix applied post-everything
+        // 10. Dry/Wet mix applied post-everything
         let out_l = (1.0 - mix) * dry_l + mix * wet_l;
         let out_r = (1.0 - mix) * dry_r + mix * wet_r;
 
+        // 11. Output Level in dB (Post-compression tap)
+        let out_max = out_l.abs().max(out_r.abs());
+        let out_db = if out_max > 1e-6 { 20.0 * out_max.log10() } else { -60.0 };
+        self.last_output_db_l = out_db;
+        self.last_output_db_r = out_db;
+
         (out_l, out_r)
+    }
+
+    #[inline]
+    pub fn set_last_telemetry(&mut self, in_db: f64, det_db: f64, out_db: f64, gr_db: f64) {
+        self.last_input_db_l = in_db;
+        self.last_input_db_r = in_db;
+        self.last_detected_db_l = det_db;
+        self.last_detected_db_r = det_db;
+        self.last_output_db_l = out_db;
+        self.last_output_db_r = out_db;
+        self.last_gr_db_l = gr_db;
+        self.last_gr_db_r = gr_db;
     }
 
     /// Process a block of stereo samples in-place
     pub fn process_block(&mut self, left: &mut [f64], right: &mut [f64]) {
         let n = left.len().min(right.len());
+        if n == 0 {
+            return;
+        }
+        let mut in_sum_sq = 0.0f64;
+        let mut in_peak = 0.0f64;
+        let mut out_sum_sq = 0.0f64;
+        let mut out_peak = 0.0f64;
+        let mut max_gr = 0.0f64;
+        let mut max_det = -60.0f64;
+
         for i in 0..n {
-            let (out_l, out_r) = self.process_sample(left[i], right[i]);
+            let inl = left[i];
+            let inr = right[i];
+            let ins = inl.abs().max(inr.abs());
+            in_sum_sq += inl * inl + inr * inr;
+            in_peak = in_peak.max(ins);
+
+            let (out_l, out_r) = self.process_sample(inl, inr);
             left[i] = out_l;
             right[i] = out_r;
+
+            let outs = out_l.abs().max(out_r.abs());
+            out_sum_sq += out_l * out_l + out_r * out_r;
+            out_peak = out_peak.max(outs);
+
+            let cur_gr = self.last_gr_db_l.max(self.last_gr_db_r);
+            max_gr = max_gr.max(cur_gr);
+
+            let cur_det = self.last_detected_db_l.max(self.last_detected_db_r);
+            max_det = max_det.max(cur_det);
         }
+
+        let in_rms = (in_sum_sq / (2.0 * n as f64).max(1.0)).sqrt();
+        let in_level = 0.7 * in_peak + 0.3 * in_rms;
+        let in_db = if in_level > 1e-5 { 20.0 * in_level.log10() } else { -60.0 };
+
+        let out_rms = (out_sum_sq / (2.0 * n as f64).max(1.0)).sqrt();
+        let out_level = 0.7 * out_peak + 0.3 * out_rms;
+        let out_db = if out_level > 1e-5 { 20.0 * out_level.log10() } else { -60.0 };
+
+        self.set_last_telemetry(in_db, max_det, out_db, max_gr);
     }
 }
 

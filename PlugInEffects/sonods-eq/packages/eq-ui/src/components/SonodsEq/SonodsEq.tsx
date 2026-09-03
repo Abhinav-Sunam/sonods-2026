@@ -24,19 +24,50 @@ export interface SonodsEqProps {
   node: SonodsEqNode | null;
   trackName?: string;
   showDevOverlay?: boolean;
+  onClose?: () => void;
+  onMinimize?: () => void;
+  onMaximize?: () => void;
 }
 
 export const SonodsEq: React.FC<SonodsEqProps> = ({
   node,
   trackName = 'Track 1',
   showDevOverlay = false,
+  onClose,
+  onMinimize,
+  onMaximize,
 }) => {
   const state = useSonodsEqStore(node);
   const [selectedBandIndex, setSelectedBandIndex] = useState<number | null>(null);
   const [annotations, setAnnotations] = useState<ExplainableAnnotation[]>([]);
   const [isBypassed, setIsBypassed] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
   const [fps, setFps] = useState(60);
   const [frameDurationMs, setFrameDurationMs] = useState(0);
+
+  const handleMinimizeAction = useCallback(() => {
+    if (onMinimize) {
+      onMinimize();
+    } else {
+      setIsMinimized((prev) => !prev);
+    }
+  }, [onMinimize]);
+
+  const handleMaximizeAction = useCallback(() => {
+    if (onMaximize) {
+      onMaximize();
+    } else {
+      setIsMinimized(false);
+    }
+  }, [onMaximize]);
+
+  const handleCloseAction = useCallback(() => {
+    if (onClose) {
+      onClose();
+    } else {
+      setIsMinimized(true);
+    }
+  }, [onClose]);
 
   // Context menu state
   const [menuState, setMenuState] = useState<{
@@ -163,6 +194,55 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
     [node, state.bands, selectedBandIndex, selectedBand]
   );
 
+  if (isMinimized) {
+    return (
+      <div
+        className={styles.chassis}
+        style={{
+          padding: '12px 18px',
+          display: 'flex',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 800, color: '#18181B', letterSpacing: '-0.2px' }}>
+            SONODS EQ
+          </span>
+          <span
+            style={{
+              fontSize: '11px',
+              fontWeight: 700,
+              background: '#F4F4F5',
+              padding: '2px 8px',
+              borderRadius: '4px',
+              color: '#52525B',
+            }}
+          >
+            {state.bands.length} BANDS · {isBypassed ? 'BYPASSED' : 'ACTIVE'}
+          </span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            type="button"
+            className={styles.controlBtn}
+            onClick={() => setIsMinimized(false)}
+          >
+            RESTORE
+          </button>
+          <StatusDots
+            onClose={handleCloseAction}
+            onMinimize={handleMinimizeAction}
+            onMaximize={handleMaximizeAction}
+            cpuWarning={frameDurationMs > 16.6}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={styles.chassis}
@@ -178,7 +258,12 @@ export const SonodsEq: React.FC<SonodsEqProps> = ({
         />
         <div className={styles.topRightGroup}>
           <AiAssist onSelectPreset={handleSelectAiPreset} />
-          <StatusDots cpuWarning={frameDurationMs > 16.6} />
+          <StatusDots
+            onClose={handleCloseAction}
+            onMinimize={handleMinimizeAction}
+            onMaximize={handleMaximizeAction}
+            cpuWarning={frameDurationMs > 16.6}
+          />
         </div>
       </div>
 

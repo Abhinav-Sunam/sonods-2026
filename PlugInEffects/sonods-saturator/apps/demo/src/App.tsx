@@ -46,6 +46,10 @@ export const App: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file || !audioCtxRef.current) return;
 
+    if (audioCtxRef.current.state === 'suspended') {
+      await audioCtxRef.current.resume();
+    }
+
     setFileName(file.name);
     setIsDecoding(true);
     setSignalType('file');
@@ -59,14 +63,18 @@ export const App: React.FC = () => {
       setFileName('Error decoding file');
     } finally {
       setIsDecoding(false);
+      // Reset input value so same file can be re-uploaded if desired
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
-  const startSignal = () => {
+  const startSignal = async () => {
     if (!audioCtxRef.current || !node) return;
     const ctx = audioCtxRef.current;
     if (ctx.state === 'suspended') {
-      ctx.resume();
+      await ctx.resume();
     }
 
     stopSignal();

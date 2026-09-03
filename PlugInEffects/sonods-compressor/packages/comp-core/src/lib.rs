@@ -151,6 +151,46 @@ pub extern "C" fn get_gain_reduction_db(ptr: *mut CompressorCore) -> f64 {
 }
 
 #[no_mangle]
+pub extern "C" fn get_input_level_db(ptr: *mut CompressorCore) -> f64 {
+    if let Some(comp) = unsafe { ptr.as_ref() } {
+        comp.current_input_level_db()
+    } else {
+        -60.0
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn get_detected_level_db(ptr: *mut CompressorCore) -> f64 {
+    if let Some(comp) = unsafe { ptr.as_ref() } {
+        comp.current_detected_level_db()
+    } else {
+        -60.0
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn get_output_level_db(ptr: *mut CompressorCore) -> f64 {
+    if let Some(comp) = unsafe { ptr.as_ref() } {
+        comp.current_output_level_db()
+    } else {
+        -60.0
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn get_telemetry_frame(ptr: *mut CompressorCore, out_ptr: *mut f32) {
+    if let Some(comp) = unsafe { ptr.as_ref() } {
+        if !out_ptr.is_null() {
+            let out_slice = unsafe { std::slice::from_raw_parts_mut(out_ptr, 4) };
+            out_slice[0] = comp.current_input_level_db() as f32;
+            out_slice[1] = comp.current_detected_level_db() as f32;
+            out_slice[2] = comp.current_output_level_db() as f32;
+            out_slice[3] = comp.current_gain_reduction_db() as f32;
+        }
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn process_block(
     ptr: *mut CompressorCore,
     left_ptr: *mut f32,
@@ -161,11 +201,44 @@ pub extern "C" fn process_block(
         if !left_ptr.is_null() && !right_ptr.is_null() && len > 0 {
             let left = unsafe { std::slice::from_raw_parts_mut(left_ptr, len) };
             let right = unsafe { std::slice::from_raw_parts_mut(right_ptr, len) };
+            let mut in_sum_sq = 0.0f64;
+            let mut in_peak = 0.0f64;
+            let mut out_sum_sq = 0.0f64;
+            let mut out_peak = 0.0f64;
+            let mut max_gr = 0.0f64;
+            let mut max_det = -60.0f64;
+
             for i in 0..len {
-                let (out_l, out_r) = comp.process_sample(left[i] as f64, right[i] as f64);
+                let inl = left[i] as f64;
+                let inr = right[i] as f64;
+                let ins = inl.abs().max(inr.abs());
+                in_sum_sq += inl * inl + inr * inr;
+                in_peak = in_peak.max(ins);
+
+                let (out_l, out_r) = comp.process_sample(inl, inr);
                 left[i] = out_l as f32;
                 right[i] = out_r as f32;
+
+                let outs = out_l.abs().max(out_r.abs());
+                out_sum_sq += out_l * out_l + out_r * out_r;
+                out_peak = out_peak.max(outs);
+
+                let cur_gr = comp.current_gain_reduction_db();
+                max_gr = max_gr.max(cur_gr);
+
+                let cur_det = comp.current_detected_level_db();
+                max_det = max_det.max(cur_det);
             }
+
+            let in_rms = (in_sum_sq / (2.0 * len as f64).max(1.0)).sqrt();
+            let in_level = 0.7 * in_peak + 0.3 * in_rms;
+            let in_db = if in_level > 1e-5 { 20.0 * in_level.log10() } else { -60.0 };
+
+            let out_rms = (out_sum_sq / (2.0 * len as f64).max(1.0)).sqrt();
+            let out_level = 0.7 * out_peak + 0.3 * out_rms;
+            let out_db = if out_level > 1e-5 { 20.0 * out_level.log10() } else { -60.0 };
+
+            comp.set_last_telemetry(in_db, max_det, out_db, max_gr);
         }
     }
 }

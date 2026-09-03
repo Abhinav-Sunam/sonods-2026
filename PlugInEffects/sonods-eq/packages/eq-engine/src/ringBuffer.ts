@@ -20,6 +20,8 @@ export enum CommandType {
   RemoveBand = 2,
   SetPhaseMode = 3,
   SetSampleRate = 4,
+  ClearBands = 5,
+  SnapBand = 6,
 }
 
 export interface SharedMemoryLayout {

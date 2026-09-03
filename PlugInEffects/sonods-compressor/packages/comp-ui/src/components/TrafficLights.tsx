@@ -1,30 +1,24 @@
 import React from 'react';
-import styles from './StatusDots.module.css';
+import styles from './TrafficLights.module.css';
 
 export interface TrafficLightsProps {
   onClose?: () => void;
   onMinimize?: () => void;
   onMaximize?: () => void;
-  cpuWarning?: boolean;
-  overload?: boolean;
 }
-
-export type StatusDotsProps = TrafficLightsProps;
 
 export const TrafficLights: React.FC<TrafficLightsProps> = ({
   onClose,
   onMinimize,
   onMaximize,
-  cpuWarning = false,
-  overload = false,
 }) => {
   return (
     <div className={styles.trafficLights}>
       <button
         type="button"
-        className={`${styles.dot} ${styles.dotRed} ${overload ? styles.active : ''}`}
+        className={`${styles.dot} ${styles.dotRed}`}
         onClick={onClose}
-        title="Close / Hide Plugin"
+        title="Close Plugin"
         aria-label="Close"
       >
         <svg className={styles.glyph} width="6" height="6" viewBox="0 0 6 6">
@@ -33,7 +27,7 @@ export const TrafficLights: React.FC<TrafficLightsProps> = ({
       </button>
       <button
         type="button"
-        className={`${styles.dot} ${styles.dotAmber} ${cpuWarning ? styles.active : ''}`}
+        className={`${styles.dot} ${styles.dotAmber}`}
         onClick={onMinimize}
         title="Minimize / Compact View"
         aria-label="Minimize"
@@ -46,7 +40,7 @@ export const TrafficLights: React.FC<TrafficLightsProps> = ({
         type="button"
         className={`${styles.dot} ${styles.dotGreen}`}
         onClick={onMaximize}
-        title="Maximize / Fullscreen"
+        title="Maximize / Full View"
         aria-label="Maximize"
       >
         <svg className={styles.glyph} width="6" height="6" viewBox="0 0 6 6">
@@ -56,6 +50,3 @@ export const TrafficLights: React.FC<TrafficLightsProps> = ({
     </div>
   );
 };
-
-export const StatusDots = TrafficLights;
-

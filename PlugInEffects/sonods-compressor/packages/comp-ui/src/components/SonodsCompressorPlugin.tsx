@@ -1,25 +1,32 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { SonodsCompressorNode, CompressorCharacterType, CompressorState } from '@sonods/comp-engine';
 import { PressKnob } from './PressKnob.js';
-import { PressIllustration } from './PressIllustration.js';
+import { CompressorLiveTimeline } from './CompressorLiveTimeline.js';
+import { TrafficLights } from './TrafficLights.js';
 import '../theme/tokens.css';
 
-interface SonodsCompressorPluginProps {
+export interface SonodsCompressorPluginProps {
   node: SonodsCompressorNode;
+  width?: number | string;
+  trackName?: string;
+  onClose?: () => void;
+  onMinimize?: () => void;
+  onMaximize?: () => void;
 }
 
-/**
- * SonodsCompressorPlugin Main UI Component (Task 4.3 & 4.4).
- *
- * Layout directly reproduces the user's hand-drawn doodle:
- * - Left side: Hydraulic Press with burger stack illustration reacting to real-time compression.
- * - Right side: 2x2 grid of 4 primary flat amber knobs (Threshold, Ratio, Attack, Release).
- * - Clean white chassis frame with rounded corners, thick dark border, character selector,
- *   secondary controls bar, and the signature "SonoDS" branding in bottom-right corner.
- */
-export const SonodsCompressorPlugin: React.FC<SonodsCompressorPluginProps> = ({ node }) => {
+export const SonodsCompressorPlugin: React.FC<SonodsCompressorPluginProps> = ({
+  node,
+  width = 780,
+  trackName = 'Track 1',
+  onClose,
+  onMinimize,
+  onMaximize,
+}) => {
   const [state, setState] = useState<CompressorState>(node.getState());
   const [gainReductionDb, setGainReductionDb] = useState(node.getCurrentGainReductionDb());
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [isBypassed, setIsBypassed] = useState(false);
+  const [activeMode, setActiveMode] = useState<'COMP' | 'LIMIT'>('COMP');
 
   useEffect(() => {
     const unsubState = node.subscribe((newState) => {
@@ -35,287 +42,525 @@ export const SonodsCompressorPlugin: React.FC<SonodsCompressorPluginProps> = ({ 
     };
   }, [node]);
 
-  return (
-    <div
-      style={{
-        width: '680px',
-        maxWidth: '100%',
-        background: '#FFFFFF',
-        borderRadius: '24px',
-        border: '3.5px solid #18181B',
-        boxShadow: '0 20px 45px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04)',
-        padding: '28px 32px',
-        boxSizing: 'border-box',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '20px',
-        position: 'relative',
-        userSelect: 'none',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      }}
-    >
-      {/* Header bar with character selector pills */}
+  const handleMinimizeAction = useCallback(() => {
+    if (onMinimize) {
+      onMinimize();
+    } else {
+      setIsMinimized((prev) => !prev);
+    }
+  }, [onMinimize]);
+
+  const handleMaximizeAction = useCallback(() => {
+    if (onMaximize) {
+      onMaximize();
+    } else {
+      setIsMinimized(false);
+    }
+  }, [onMaximize]);
+
+  const handleCloseAction = useCallback(() => {
+    if (onClose) {
+      onClose();
+    } else {
+      setIsMinimized(true);
+    }
+  }, [onClose]);
+
+  const handleModeSwitch = (mode: 'COMP' | 'LIMIT') => {
+    setActiveMode(mode);
+    if (mode === 'LIMIT') {
+      node.setRatio(20.0);
+      node.setAttack(0.001); // 1ms
+      node.setKnee(0.0); // Hard knee
+    } else {
+      node.setRatio(4.0);
+      node.setAttack(0.020);
+      node.setKnee(6.0);
+    }
+  };
+
+  const handleReset = () => {
+    node.setThreshold(-16.0);
+    node.setRatio(4.0);
+    node.setAttack(0.020);
+    node.setRelease(0.150);
+    node.setKnee(6.0);
+    node.setCharacter('vca');
+    node.setMix(1.0);
+    node.setOutputGain(0.0);
+    node.setSidechainHpf(20.0);
+    setIsBypassed(false);
+    setActiveMode('COMP');
+  };
+
+  const handleToggleBypass = () => {
+    const nextBypass = !isBypassed;
+    setIsBypassed(nextBypass);
+    if (nextBypass) {
+      node.setMix(0);
+    } else {
+      node.setMix(state.mix > 0 ? state.mix : 1.0);
+    }
+  };
+
+  if (isMinimized) {
+    return (
       <div
+        className="comp-root"
         style={{
+          width,
+          maxWidth: '100%',
+          borderRadius: '16px',
+          background: '#FFFFFF',
+          border: '3px solid #18181B',
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.08)',
+          padding: '12px 18px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '1px solid #E4E4E7',
-          paddingBottom: '12px',
-          position: 'relative',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          boxSizing: 'border-box',
+          userSelect: 'none',
+          color: '#18181B',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '120px' }}>
-          <div
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 800, color: '#18181B', letterSpacing: '-0.2px' }}>
+            SONODS COMPRESSOR
+          </span>
+          <span
             style={{
-              width: '10px',
-              height: '10px',
-              borderRadius: '50%',
-              background: '#18181B',
+              fontSize: '11px',
+              fontWeight: 700,
+              background: '#F4F4F5',
+              border: '1px solid #E4E4E7',
+              padding: '2px 8px',
+              borderRadius: '4px',
+              color: '#0891B2',
             }}
-          />
-          <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '-0.2px', color: '#18181B' }}>
-            Compression
+          >
+            {state.character.toUpperCase()} · GR: -{gainReductionDb.toFixed(1)} dB
           </span>
         </div>
 
-        {/* Character Topology Pills (VCA / Opto / FET) - Centered */}
-        <div
-          style={{
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            background: '#F4F4F5',
-            padding: '3px',
-            borderRadius: '8px',
-            border: '1px solid #E4E4E7',
-            gap: '2px',
-          }}
-        >
-          {(['vca', 'opto', 'fet'] as CompressorCharacterType[]).map((char) => {
-            const active = state.character === char;
-            return (
-              <button
-                key={char}
-                onClick={() => node.setCharacter(char)}
-                style={{
-                  padding: '4px 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: active ? '#18181B' : 'transparent',
-                  color: active ? '#FFFFFF' : '#71717A',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                {char}
-              </button>
-            );
-          })}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={() => setIsMinimized(false)}
+            style={{
+              background: '#FFFFFF',
+              border: '1.5px solid #D4D4D8',
+              borderRadius: '6px',
+              color: '#18181B',
+              fontSize: '11px',
+              fontWeight: 700,
+              padding: '4px 10px',
+              cursor: 'pointer',
+            }}
+          >
+            RESTORE
+          </button>
+          <TrafficLights
+            onClose={handleCloseAction}
+            onMinimize={handleMinimizeAction}
+            onMaximize={handleMaximizeAction}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="comp-root"
+      style={{
+        width,
+        maxWidth: '100%',
+        borderRadius: '24px',
+        background: '#FFFFFF',
+        border: '3px solid #18181B',
+        boxShadow: '0 20px 45px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05)',
+        display: 'flex',
+        flexDirection: 'column',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        userSelect: 'none',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        color: '#18181B',
+      }}
+    >
+      {/* --- Top Header Bar --- */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '12px 20px',
+          background: '#FAFAFA',
+          borderBottom: '1.5px solid #E4E4E7',
+          gap: '12px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '-0.3px', color: '#18181B' }}>
+            SONODS COMPRESSOR
+          </span>
+          <span
+            style={{
+              fontSize: '10px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              background: '#F4F4F5',
+              border: '1px solid #E4E4E7',
+              padding: '2px 8px',
+              borderRadius: '4px',
+              color: '#71717A',
+            }}
+          >
+            {trackName}
+          </span>
         </div>
 
-        {/* Gain reduction numeric badge with fixed width and tabular numbers */}
-        <div
-          style={{
-            minWidth: '94px',
-            width: '94px',
-            boxSizing: 'border-box',
-            textAlign: 'center',
-            fontSize: '11px',
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-            fontVariantNumeric: 'tabular-nums',
-            fontWeight: 700,
-            color: gainReductionDb > 0.5 ? '#EF4444' : '#71717A',
-            padding: '3px 8px',
-            borderRadius: '6px',
-            background: gainReductionDb > 0.5 ? 'rgba(239, 68, 68, 0.1)' : '#F4F4F5',
-            transition: 'background 0.1s ease, color 0.1s ease',
-          }}
-        >
-          GR: -{gainReductionDb.toFixed(1)} dB
+        {/* Right Header: Gain Reduction meter badge + Traffic Lights */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            style={{
+              minWidth: '105px',
+              textAlign: 'center',
+              fontSize: '11px',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              fontVariantNumeric: 'tabular-nums',
+              fontWeight: 800,
+              color: gainReductionDb > 0.5 ? '#DC2626' : '#71717A',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              background: gainReductionDb > 0.5 ? 'rgba(239, 68, 68, 0.1)' : '#F4F4F5',
+              border: gainReductionDb > 0.5 ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid #E4E4E7',
+              transition: 'background 0.1s ease, color 0.1s ease',
+            }}
+          >
+            GR: -{gainReductionDb.toFixed(1)} dB
+          </div>
+
+          <TrafficLights
+            onClose={handleCloseAction}
+            onMinimize={handleMinimizeAction}
+            onMaximize={handleMaximizeAction}
+          />
         </div>
       </div>
 
-      {/* Main 50/50 Body: Left = Hydraulic Press, Right = 2x2 Knobs (Matching Doodle) */}
+      {/* --- TOP ZONE: Full-Width Live Scrolling Visualization Strip --- */}
+      <CompressorLiveTimeline
+        node={node}
+        state={state}
+        gainReductionDb={gainReductionDb}
+        height={210}
+      />
+
+      {/* --- BOTTOM ZONE: Grouped & Labeled Sections (FL Fruity Limiter Structure) --- */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '24px',
-          alignItems: 'center',
+          gridTemplateColumns: '1.2fr 3.2fr 1.6fr',
+          background: '#FFFFFF',
+          padding: '16px 20px',
+          gap: '16px',
+          alignItems: 'stretch',
         }}
       >
-        {/* Left Side: Hydraulic Press Illustration */}
+        {/* Section 1: LOUDNESS / LEVEL */}
         <div
           style={{
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '12px',
+            flexDirection: 'column',
             background: '#FAFAFA',
-            borderRadius: '16px',
+            borderRadius: '12px',
             border: '1.5px solid #E4E4E7',
-            height: '240px',
+            padding: '12px 14px',
           }}
         >
-          <PressIllustration gainReductionDb={gainReductionDb} width={220} height={220} />
+          <div
+            style={{
+              fontSize: '10px',
+              fontWeight: 800,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#71717A',
+              borderBottom: '1px solid #E4E4E7',
+              paddingBottom: '6px',
+              marginBottom: '12px',
+              textAlign: 'center',
+            }}
+          >
+            LOUDNESS
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', flex: 1 }}>
+            <PressKnob
+              label="GAIN"
+              value={state.outputGain}
+              min={-18.0}
+              max={18.0}
+              step={0.5}
+              defaultValue={0.0}
+              unit=" dB"
+              onChange={(val) => node.setOutputGain(val)}
+            />
+
+            <PressKnob
+              label="MIX"
+              value={state.mix}
+              min={0.0}
+              max={1.0}
+              step={0.01}
+              defaultValue={1.0}
+              displayFormatter={(val) => `${Math.round(val * 100)}%`}
+              onChange={(val) => node.setMix(val)}
+            />
+          </div>
         </div>
 
-        {/* Right Side: 2x2 Primary Knob Grid */}
+        {/* Section 2: ENVELOPE (Core Compressor Dynamics) */}
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '20px 16px',
-            justifyItems: 'center',
-            alignItems: 'center',
-            padding: '8px 0',
+            display: 'flex',
+            flexDirection: 'column',
+            background: '#FAFAFA',
+            borderRadius: '12px',
+            border: '1.5px solid #E4E4E7',
+            padding: '12px 14px',
           }}
         >
-          {/* Knob 1: Threshold */}
-          <PressKnob
-            label="Threshold"
-            value={state.threshold}
-            min={-60.0}
-            max={0.0}
-            step={0.5}
-            defaultValue={-16.0}
-            unit=" dB"
-            onChange={(val) => node.setThreshold(val)}
-          />
+          <div
+            style={{
+              fontSize: '10px',
+              fontWeight: 800,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#0891B2',
+              borderBottom: '1px solid #E4E4E7',
+              paddingBottom: '6px',
+              marginBottom: '12px',
+              textAlign: 'center',
+            }}
+          >
+            ENVELOPE
+          </div>
 
-          {/* Knob 2: Ratio */}
-          <PressKnob
-            label="Ratio"
-            value={state.ratio}
-            min={1.0}
-            max={20.0}
-            step={0.1}
-            defaultValue={4.0}
-            displayFormatter={(val) => `${val.toFixed(1)}:1`}
-            onChange={(val) => node.setRatio(val)}
-          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flex: 1, gap: '8px' }}>
+            <PressKnob
+              label="THRES"
+              value={state.threshold}
+              min={-60.0}
+              max={0.0}
+              step={0.5}
+              defaultValue={-16.0}
+              unit=" dB"
+              onChange={(val) => node.setThreshold(val)}
+            />
 
-          {/* Knob 3: Attack */}
-          <PressKnob
-            label="Attack"
-            value={state.attack * 1000} // display in ms
-            min={0.1}
-            max={100.0}
-            step={0.5}
-            defaultValue={20.0}
-            unit=" ms"
-            onChange={(val) => node.setAttack(val / 1000)}
-          />
+            <PressKnob
+              label="KNEE"
+              value={state.knee}
+              min={0.0}
+              max={24.0}
+              step={0.5}
+              defaultValue={6.0}
+              unit=" dB"
+              onChange={(val) => node.setKnee(val)}
+            />
 
-          {/* Knob 4: Release */}
-          <PressKnob
-            label="Release"
-            value={state.release * 1000} // display in ms
-            min={10.0}
-            max={1000.0}
-            step={5.0}
-            defaultValue={150.0}
-            unit=" ms"
-            onChange={(val) => node.setRelease(val / 1000)}
-          />
+            <PressKnob
+              label="RATIO"
+              value={state.ratio}
+              min={1.0}
+              max={20.0}
+              step={0.1}
+              defaultValue={4.0}
+              displayFormatter={(val) => (val >= 20 ? '∞:1' : `${val.toFixed(1)}:1`)}
+              onChange={(val) => node.setRatio(val)}
+            />
+
+            <PressKnob
+              label="ATT"
+              value={state.attack * 1000}
+              min={0.1}
+              max={100.0}
+              step={0.5}
+              defaultValue={20.0}
+              unit=" ms"
+              onChange={(val) => node.setAttack(val / 1000)}
+            />
+
+            <PressKnob
+              label="REL"
+              value={state.release * 1000}
+              min={10.0}
+              max={1000.0}
+              step={5.0}
+              defaultValue={150.0}
+              unit=" ms"
+              onChange={(val) => node.setRelease(val / 1000)}
+            />
+
+            <PressKnob
+              label="HPF"
+              value={state.sidechainHpf}
+              min={20.0}
+              max={300.0}
+              step={5.0}
+              defaultValue={20.0}
+              unit=" Hz"
+              onChange={(val) => node.setSidechainHpf(val)}
+            />
+          </div>
+        </div>
+
+        {/* Section 3: CHARACTER / TOPOLOGY */}
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            background: '#FAFAFA',
+            borderRadius: '12px',
+            border: '1.5px solid #E4E4E7',
+            padding: '12px 14px',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '10px',
+              fontWeight: 800,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+              color: '#71717A',
+              borderBottom: '1px solid #E4E4E7',
+              paddingBottom: '6px',
+              marginBottom: '12px',
+              textAlign: 'center',
+            }}
+          >
+            TOPOLOGY
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, justifyContent: 'center' }}>
+            {(
+              [
+                { id: 'vca', title: 'VCA', desc: 'Precision Bus' },
+                { id: 'opto', title: 'OPTO', desc: 'Smooth Tube' },
+                { id: 'fet', title: 'FET', desc: 'Fast Grab' },
+              ] as const
+            ).map((t) => {
+              const active = state.character === t.id;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => node.setCharacter(t.id as CompressorCharacterType)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '6px 10px',
+                    borderRadius: '6px',
+                    border: active ? '1.5px solid #06B6D4' : '1.5px solid #E4E4E7',
+                    background: active ? '#ECFEFF' : '#FFFFFF',
+                    color: active ? '#0891B2' : '#71717A',
+                    boxShadow: active ? '0 1px 3px rgba(6, 182, 212, 0.12)' : 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span style={{ fontSize: '11px', fontWeight: 800 }}>{t.title}</span>
+                  <span style={{ fontSize: '9px', fontWeight: 600, opacity: 0.8 }}>{t.desc}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Secondary Controls Toolbar (Mix, Output Gain, HPF, Auto Gain) */}
+      {/* --- Bottom Status / Mode Bar (Fruity Limiter Bottom Selector Strip) --- */}
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
           justifyContent: 'space-between',
-          background: '#F4F4F5',
-          borderRadius: '12px',
-          padding: '10px 16px',
-          gap: '12px',
-          fontSize: '11px',
-          color: '#52525B',
-          fontWeight: 600,
+          alignItems: 'center',
+          padding: '10px 20px',
+          background: '#FAFAFA',
+          borderTop: '1.5px solid #E4E4E7',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span>HPF:</span>
-          <input
-            type="range"
-            min="20"
-            max="300"
-            step="5"
-            value={state.sidechainHpf}
-            onChange={(e) => node.setSidechainHpf(parseFloat(e.target.value))}
-            style={{ width: '60px', accentColor: '#F59E0B' }}
-          />
-          <span style={{ fontFamily: 'monospace', minWidth: '40px' }}>{Math.round(state.sidechainHpf)}Hz</span>
+        {/* Bottom-Left Mode Selector: COMP / LIMIT */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, color: '#71717A', marginRight: '4px' }}>MODE:</span>
+          <div style={{ display: 'flex', background: '#E4E4E7', padding: '2px', borderRadius: '6px', gap: '2px' }}>
+            {(['COMP', 'LIMIT'] as const).map((mode) => {
+              const active = activeMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => handleModeSwitch(mode)}
+                  style={{
+                    padding: '4px 12px',
+                    borderRadius: '4px',
+                    border: 'none',
+                    background: active ? '#06B6D4' : 'transparent',
+                    color: active ? '#FFFFFF' : '#71717A',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  {mode}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span>Mix:</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={state.mix}
-            onChange={(e) => node.setMix(parseFloat(e.target.value))}
-            style={{ width: '60px', accentColor: '#F59E0B' }}
-          />
-          <span style={{ fontFamily: 'monospace', minWidth: '35px' }}>{Math.round(state.mix * 100)}%</span>
+        {/* Master Actions: Reset & Bypass */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={handleReset}
+            style={{
+              background: '#FFFFFF',
+              border: '1.5px solid #D4D4D8',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 700,
+              padding: '5px 12px',
+              color: '#18181B',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            RESET
+          </button>
+
+          <button
+            type="button"
+            onClick={handleToggleBypass}
+            style={{
+              background: isBypassed ? '#EF4444' : '#FFFFFF',
+              border: isBypassed ? '1.5px solid #DC2626' : '1.5px solid #D4D4D8',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 700,
+              padding: '5px 12px',
+              color: isBypassed ? '#FFFFFF' : '#18181B',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            {isBypassed ? 'BYPASSED' : 'BYPASS'}
+          </button>
         </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span>Output:</span>
-          <input
-            type="range"
-            min="-12"
-            max="12"
-            step="0.5"
-            value={state.outputGain}
-            onChange={(e) => node.setOutputGain(parseFloat(e.target.value))}
-            style={{ width: '60px', accentColor: '#F59E0B' }}
-          />
-          <span style={{ fontFamily: 'monospace', minWidth: '45px' }}>
-            {state.outputGain > 0 ? `+${state.outputGain.toFixed(1)}` : state.outputGain.toFixed(1)}dB
-          </span>
-        </div>
-
-        <button
-          onClick={() => node.setAutoGain(state.autoGain > 0.5 ? 0.0 : 1.0)}
-          style={{
-            padding: '4px 10px',
-            borderRadius: '6px',
-            border: state.autoGain > 0.5 ? '1px solid #F59E0B' : '1px solid #D4D4D8',
-            background: state.autoGain > 0.5 ? '#FEF3C7' : '#FFFFFF',
-            color: state.autoGain > 0.5 ? '#B45309' : '#71717A',
-            fontSize: '11px',
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          Auto Gain: {state.autoGain > 0.5 ? 'ON' : 'OFF'}
-        </button>
-      </div>
-
-      {/* Signature "SonoDS" branding in bottom-right corner matching sketch */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '12px',
-          right: '24px',
-          fontSize: '16px',
-          fontWeight: 900,
-          letterSpacing: '-0.4px',
-          color: '#18181B',
-          opacity: 0.85,
-        }}
-      >
-        SonoDS
       </div>
     </div>
   );

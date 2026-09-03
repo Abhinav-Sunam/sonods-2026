@@ -96,9 +96,52 @@ impl EqEngine {
         if index >= MAX_BANDS {
             return;
         }
-        let mut band = Band::new(shape, freq, gain, q, self.sample_rate);
-        band.set_enabled(enabled);
-        self.bands[index] = Some(band);
+        let sample_rate = self.sample_rate;
+        if let Some(band) = &mut self.bands[index] {
+            if band.shape != shape {
+                band.shape = shape;
+                band.recompute_coeffs(sample_rate);
+            }
+            band.freq.set_target(freq.clamp(10.0, sample_rate * 0.499));
+            band.gain.set_target(gain.clamp(-30.0, 30.0));
+            band.q.set_target(q.clamp(0.05, 40.0));
+            band.set_enabled(enabled);
+            band.update_dynamic_coefficients(sample_rate);
+        } else {
+            let mut band = Band::new(shape, freq, gain, q, sample_rate);
+            band.set_enabled(enabled);
+            self.bands[index] = Some(band);
+        }
+        self.fir_dirty = true;
+    }
+
+    pub fn snap_band(
+        &mut self,
+        index: usize,
+        shape: Shape,
+        freq: f64,
+        gain: f64,
+        q: f64,
+        enabled: bool,
+    ) {
+        if index >= MAX_BANDS {
+            return;
+        }
+        let sample_rate = self.sample_rate;
+        if let Some(band) = &mut self.bands[index] {
+            band.snap_to(shape, freq, gain, q, enabled, sample_rate);
+        } else {
+            let mut band = Band::new(shape, freq, gain, q, sample_rate);
+            band.set_enabled(enabled);
+            self.bands[index] = Some(band);
+        }
+        self.fir_dirty = true;
+    }
+
+    pub fn clear_bands(&mut self) {
+        for band in self.bands.iter_mut() {
+            *band = None;
+        }
         self.fir_dirty = true;
     }
 
@@ -150,13 +193,18 @@ impl EqEngine {
                         4 => Shape::HighCut,
                         _ => Shape::Bell,
                     };
-                    band.shape = shape;
-                    band.recompute_coeffs(sample_rate);
+                    if band.shape != shape {
+                        band.shape = shape;
+                        band.recompute_coeffs(sample_rate);
+                    }
                 }
                 4 => {
                     // Cut slope
-                    band.cut_slope = CutSlope::from_db_per_oct(value as i32);
-                    band.recompute_coeffs(sample_rate);
+                    let new_slope = CutSlope::from_db_per_oct(value as i32);
+                    if band.cut_slope != new_slope {
+                        band.cut_slope = new_slope;
+                        band.recompute_coeffs(sample_rate);
+                    }
                 }
                 5 => {
                     // Enabled
@@ -222,15 +270,15 @@ impl EqEngine {
         let num_samples = left.len().min(right.len());
         let sample_rate = self.sample_rate;
 
-        // Advance parameter smoothing once per block
-        for band in self.bands.iter_mut().flatten() {
-            band.tick_smoothing(sample_rate);
-        }
-
         match self.phase_mode {
             PhaseMode::ZeroLatency | PhaseMode::NaturalPhase => {
                 // IIR cascade processing (zero heap allocation in hot path)
                 for i in 0..num_samples {
+                    // Advance parameter smoothing per-sample for click-free transitions
+                    for band in self.bands.iter_mut().flatten() {
+                        band.tick_smoothing(sample_rate);
+                    }
+
                     let mut l = left[i] as f64;
                     let mut r = right[i] as f64;
 
@@ -245,6 +293,11 @@ impl EqEngine {
                 }
             }
             PhaseMode::LinearPhase => {
+                // FIR kernel redesign is inherently block-based; smooth once per block
+                for band in self.bands.iter_mut().flatten() {
+                    band.tick_smoothing(sample_rate);
+                }
+
                 self.update_fir_kernel_if_needed();
                 let taps = self.fir_kernel.len();
 

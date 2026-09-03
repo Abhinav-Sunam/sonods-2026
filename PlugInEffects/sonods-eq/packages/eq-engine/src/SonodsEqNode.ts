@@ -231,7 +231,25 @@ export class SonodsEqNode {
         break;
     }
 
-    this.updateBandInEngine(band);
+    // Update main-thread WASM engine for visual curve calculation
+    if (this.dspExports && this.mainEnginePtr) {
+      this.dspExports.set_band_param(this.mainEnginePtr, bandIndex, paramId, value);
+    }
+
+    // Update SharedArrayBuffer if active
+    if (this.sharedLayout) {
+      const base = bandIndex * 10;
+      this.sharedLayout.params[base + paramId] = value;
+    }
+
+    // Send targeted parameter change to worklet
+    this.workletNode?.port.postMessage({
+      type: 'SET_PARAM',
+      bandIndex,
+      paramId,
+      value,
+    });
+
     this.curveDirty = true;
     this.notifyState();
   }
@@ -335,15 +353,103 @@ export class SonodsEqNode {
     }
   }
 
-  public resetToDefault(): void {
-    for (const band of this.getBands()) {
-      this.removeBand(band.index);
+  public snapBand(
+    slot: number,
+    shape: Shape = Shape.Bell,
+    freq: number = 1000,
+    gain: number = 0,
+    q: number = 1.0,
+    slope: CutSlope = CutSlope.Db24
+  ): BandState {
+    const band: BandState = {
+      id: this.nextBandId++,
+      index: slot,
+      shape,
+      slope,
+      freq: Math.max(10, Math.min(freq, 22000)),
+      gain: Math.max(-30, Math.min(gain, 30)),
+      q: Math.max(0.1, Math.min(q, 40)),
+      enabled: true,
+      mode: ProcessingMode.Stereo,
+      dynamicEnabled: false,
+      dynamicThreshold: -18,
+      dynamicRange: 0,
+    };
+
+    this.bands.set(slot, band);
+
+    if (this.dspExports && this.mainEnginePtr) {
+      if (this.dspExports.snap_band) {
+        this.dspExports.snap_band(
+          this.mainEnginePtr,
+          slot,
+          band.shape,
+          band.freq,
+          band.gain,
+          band.q,
+          1
+        );
+      } else {
+        this.dspExports.set_band(
+          this.mainEnginePtr,
+          slot,
+          band.shape,
+          band.freq,
+          band.gain,
+          band.q,
+          1
+        );
+      }
     }
-    this.addBand(Shape.LowCut, 35, 0.0, 0.7);
-    this.addBand(Shape.LowShelf, 120, 0.0, 0.8);
-    this.addBand(Shape.Bell, 800, 0.0, 1.4);
-    this.addBand(Shape.HighShelf, 6000, 0.0, 0.9);
-    this.addBand(Shape.HighCut, 18000, 0.0, 0.7);
+
+    if (this.sharedLayout) {
+      const base = slot * 10;
+      this.sharedLayout.params[base + 0] = band.freq;
+      this.sharedLayout.params[base + 1] = band.gain;
+      this.sharedLayout.params[base + 2] = band.q;
+      this.sharedLayout.params[base + 3] = band.shape;
+      this.sharedLayout.params[base + 4] = band.slope;
+      this.sharedLayout.params[base + 5] = 1;
+      this.sharedLayout.params[base + 6] = band.mode;
+      this.sharedLayout.params[base + 7] = 0;
+      this.sharedLayout.params[base + 8] = band.dynamicThreshold;
+      this.sharedLayout.params[base + 9] = band.dynamicRange;
+    }
+
+    this.workletNode?.port.postMessage({
+      type: 'SNAP_BAND',
+      index: slot,
+      shape: band.shape,
+      freq: band.freq,
+      gain: band.gain,
+      q: band.q,
+      enabled: true,
+    });
+
+    return band;
+  }
+
+  public resetToDefault(): void {
+    if (this.dspExports && this.mainEnginePtr) {
+      if (this.dspExports.clear_bands) {
+        this.dspExports.clear_bands(this.mainEnginePtr);
+      }
+    }
+    this.bands.clear();
+
+    if (this.sharedLayout) {
+      this.sharedLayout.params.fill(0);
+    }
+
+    this.workletNode?.port.postMessage({
+      type: 'CLEAR_BANDS',
+    });
+
+    this.snapBand(0, Shape.LowCut, 35, 0.0, 0.7);
+    this.snapBand(1, Shape.LowShelf, 120, 0.0, 0.8);
+    this.snapBand(2, Shape.Bell, 800, 0.0, 1.4);
+    this.snapBand(3, Shape.HighShelf, 6000, 0.0, 0.9);
+    this.snapBand(4, Shape.HighCut, 18000, 0.0, 0.7);
     this.curveDirty = true;
     this.notifyState();
   }

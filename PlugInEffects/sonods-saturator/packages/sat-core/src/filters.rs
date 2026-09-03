@@ -135,6 +135,17 @@ impl Biquad {
         self.s2 = flush_denormal(self.b2 * input - self.a2 * out);
         out
     }
+
+    /// Update filter coefficients without resetting internal state.
+    /// Prevents clicks/transients during real-time parameter changes.
+    pub fn update_coeffs(&mut self, source: &Biquad) {
+        self.b0 = source.b0;
+        self.b1 = source.b1;
+        self.b2 = source.b2;
+        self.a1 = source.a1;
+        self.a2 = source.a2;
+        // s1, s2 intentionally preserved to avoid transient clicks
+    }
 }
 
 /// 1-pole DC-blocking highpass filter (~8Hz).
